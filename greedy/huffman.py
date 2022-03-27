@@ -1,4 +1,5 @@
 from cmath import atan
+from glob import glob
 from matplotlib.patches import Circle
 from matplotlib.patches import Path
 from matplotlib.patches import PathPatch
@@ -9,7 +10,8 @@ from IPython.display import clear_output
 import math 
 import os
 %matplotlib nbagg
-out1 = widgets.Output()
+
+
 display(out1)
 #--------------------------------------
 def frequencies(s): 
@@ -30,7 +32,7 @@ class get_text:
         global texto
         texto = self.text.value
         clear_output()
-        estado = run()
+        estado = run(frequencies(texto))
     
     def __init__(self): 
         self.ready_button = widgets.Button(description='Listo')
@@ -93,7 +95,57 @@ class arbol:
             largest_x[d] = x + 2*r 
             y = largest_d*dy - d*dy + 1 
             self.val_coord[v] = (x,y)
-    
+    def obtener_hojas_dfs(self,y): 
+        hojas = dict(); 
+        self.obtener_hojas_dfs_rec(hojas,0,y)
+        return hojas
+    def obtener_hojas_dfs_rec(self,hojas,x,d): 
+        rad = 1 
+        if(len(self.val_node[x].children) == 0): 
+            hojas[x] = d
+        for c in self.val_node[x].children:
+            self.obtener_hojas_dfs_rec(hojas,c.val,d - 3*rad)
+
+    def obtener_hojas_bfs(self,y):
+        rad = 1  
+        cola = [(0,y)]
+        hojas = dict()
+        while(cola): 
+            u,d = cola[0]
+            cola.pop(0)
+            if(self.val_node[u].children == []): 
+                hojas[u] = d
+            for v in self.val_node[u].children: 
+                cola.append((v.val,d - 3*rad))
+        return hojas
+    def punto_medio_hijos(self,p): 
+        lc = self.val_node[p].children[-1].val 
+        fc = self.val_node[p].children[0].val 
+        (x1,_) = self.val_coord[fc]
+        (x2,_) = self.val_coord[lc]
+        return (x1+x2)/2
+    def obtener_coord3(self):
+        self.val_coord.clear()
+        rad = 1 
+        hojas = self.obtener_hojas_dfs(20)  
+        x = 1  
+        for (h,d) in hojas.items():  
+            self.val_coord[h] = (x,d)
+            x = x + rad*3 
+        cola = list(hojas.keys())  
+        hijos_completos = dict()
+        while(cola):
+            h = cola.pop(0)  
+            p = self.val_node[h].padre
+            if(p == None): 
+                continue; 
+            if(p not in hijos_completos): 
+                hijos_completos[p] = 0 
+            hijos_completos[p] = hijos_completos[p]+1
+            if(hijos_completos[p] == len(self.val_node[p].children)): 
+                cola.append(p)
+                self.val_coord[p] = (self.punto_medio_hijos(p), self.val_coord[h][1] + 3*rad)
+
     def coord_hijos(self,u,maxx_depth): 
         rad = 1
         nh  = len(self.val_node[u].children)
@@ -123,10 +175,30 @@ def inter_points(rad,x1,y1,x2,y2):
     y = y1 + rad * math.sin(phi)
     return (x,y)
 def dibujar_arbol(tree,tree_rep,ax,edg_rep):
+    global maxim_x
+    global maxim_y 
+    rad = 1
     #son los nodos invisibles 
     inv = [0]
-    tree.obtener_coord2(15,20)
-    rad = 1
+    tree.obtener_coord3()
+    #mover el arbol segun las coordenadas 
+    min_y = float('inf')
+    max_y = float('-inf')
+    max_x = float('-inf')
+    for (v,(x,y)) in tree.val_coord.items(): 
+        min_y = min(y,min_y)
+        max_y = max(y,max_y)
+        max_x = max(x,max_x)
+    #mover hacia arriba todos los 
+    if(min_y < 0):
+        min_y = min_y - 2*rad
+        for v,(x,y) in tree.val_coord.items(): 
+            tree.val_coord[v] = (x, y - min_y)  
+    #hacer mas grandes los ejes 
+    maxim_x = max(max_x+5*rad,maxim_x)
+    maxim_y = max(max_y+5*rad,maxim_y)
+    plt.xticks(range(1,maxim_x))
+    plt.yticks(range(1,maxim_y))
     for v,(x,y) in tree.val_coord.items():
         if(v in tree_rep): 
             [c,frq_anot,char_anot,vis] = tree_rep[v]
@@ -173,6 +245,8 @@ class run:
     #tree 
     #ordenados los simbolos 
     #ax,tree,tree_rep,edg_rep
+    #esto es para eliminar los amarillos anteriores 
+    previous_colored = []
     def onclick(self,event):
         st = "nada"
         os.write(1, st.encode())
@@ -187,6 +261,9 @@ class run:
         
     def next_button_handler(self,event):
         global cid
+        for i in self.previous_colored: 
+            self.tree_rep[i][0].set(facecolor = 'white')
+            self.tree_rep[i][0].set(edgecolor = 'black')
         #cuando los hijos de la raiz sea uno 
         if(len(self.tree.val_node[0].children) <= 1): 
             clear_output()
@@ -214,14 +291,31 @@ class run:
         self.tree.val_node[0].children.append(n_node)
         n_node.padre = 0 
         dibujar_arbol(self.tree,self.tree_rep,self.ax,self.edg_rep) 
+        lista = [] 
+        for n in self.tree.val_node[0].children: 
+            if(n.val != 0): 
+                lista.append((n.freq,n))
+        lista.sort(key = (lambda elem : elem[0]))
+        n1 = lista[0][1]
+        lista.pop(0)
+        self.tree_rep[n1.val][0].set(facecolor = 'yellow')
+        self.previous_colored = [n1.val]
+        if(lista): 
+            n2 = lista[0][1]
+            lista.pop(0)
+            self.tree_rep[n2.val][0].set(facecolor = 'yellow')
+            self.previous_colored.append(n2.val)
+        self.tree_rep[n_node.val][0].set(edgecolor = 'red')
+        self.previous_colored.append(n_node.val)
     def plt_config(self): 
+        global maxim_x 
+        global maxim_y 
         global cid
         self.fig, self.ax = plt.subplots()
-        self.maxim_x = 40
-        self.maxim_y = 25
-        plt.xticks(range(1,self.maxim_x))
-        plt.yticks(range(1,self.maxim_y))   
+        plt.xticks(range(1,maxim_x))
+        plt.yticks(range(1,maxim_y))   
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.axis('off')
     def button_config(self): 
         self.next_button = widgets.Button(description='Listo')
         self.next_button.on_click(self.next_button_handler)
@@ -250,25 +344,27 @@ edg_rep es un diccionario donde las llaves son parejas y el contenido es una lin
 class codification: 
     codif = None
     def plt_config(self): 
-        global cid
+        global maxim_x
+        global maxim_y 
         self.fig, self.ax = plt.subplots()
         plt.figure(self.fig.number)
-        self.maxim_x = 40
-        self.maxim_y = 25
-        plt.xticks(range(1,self.maxim_x))
-        plt.yticks(range(1,self.maxim_y))
+        plt.xticks(range(1,maxim_x))
+        plt.yticks(range(1,maxim_y))
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.axis('off')
 
     def handler_char_button(self,event): 
         self.pintar_camino(self.char_node[event.description])
 
     def buttons_config(self): 
         children = [] 
-        for (c,v) in self.char_node.items(): 
+        chars = list(self.char_node.keys())
+        chars.sort()
+        for c in chars: 
             button = widgets.Button(description=str(c))
             button.on_click(self.handler_char_button)
             children.append(button)
-        self.box = widgets.VBox(children)
+        self.box = widgets.HBox(children)
         display(self.box)
     #s es la separacion 
     def punto_medio(self,x1,y1,x2,y2,s): 
@@ -323,6 +419,8 @@ class codification:
                 self.char_node[n.char] = v 
     #esta función pinta el camino pero también halla la codificación 
     def pintar_camino(self,n): 
+        global maxim_x
+        global maxim_y 
         current = n; 
         #mientras current es distinto de la raiz 
         #limpiarlos 
@@ -342,9 +440,10 @@ class codification:
 
         #pone la letra y la codificacion
         #cod_str = codif[::-1][1:]
-        cod_str = self.tree.val_node[n].char + " : " + codif[::-1]
+        cod_str = "codificacion de {} : {}".format(self.tree.val_node[n].char,codif[::-1])
+        rad = 1
         if (self.codif == None): 
-            self.codif = self.ax.annotate(cod_str, (20, 19),color='black', weight='bold', fontsize=7, ha='center', va='center')
+            self.codif = self.ax.annotate(cod_str, (maxim_x - 5*rad,maxim_y-5*rad),color='black', weight='bold', fontsize=7, ha='center', va='center')
         else: 
             self.codif.set(text = cod_str )
  #   boton siguiente
@@ -353,4 +452,6 @@ class codification:
     #pon la codificacion 
 cid = None
 texto = ""
-estado = run(frequencies("lkadjfjadljfldkfaidfajldihfaiwueyriewyroiyueowryuuirywidfkjadl"))
+estado = get_text()
+maxim_x = 1
+maxim_y = 1
