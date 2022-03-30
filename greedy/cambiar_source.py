@@ -1,8 +1,9 @@
 import json
+import sys
  
 # Opening JSON file
-notebook = 'huffman_alg.ipynb'
-new_source = 'huffman.py'
+notebook = sys.argv[1] 
+new_source = sys.argv[2] 
 note_f = open(notebook,"r")
 src_f = open(new_source,"r")
  
