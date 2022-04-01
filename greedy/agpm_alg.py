@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from IPython.display import display
 import ipywidgets as widgets
 from IPython.display import clear_output
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+
 import math 
 %matplotlib nbagg
 out1 = widgets.Output()
@@ -54,6 +56,28 @@ class Circulo:
 
 class Envir:
     vars = dict()  
+
+class Union_find: 
+    def __init__(self,n):
+        self.parent = [i for i in range (0,n)]
+        self.size = [1 for i in range (0,n) ]
+    
+    def unite(self,i,j): 
+        pi = self.find(i)
+        pj = self.find(j)
+        if(pi == pj):
+            return 
+        if(self.size[pi] < self.size[pj]): 
+            self.parent[pi] = pj
+            self.size[pj] = self.size[pj] + self.size[pi]
+        else: 
+            self.parent[pj] = pi
+            self.size[pi] = self.size[pi] + self.size[pj]
+    
+    def find(self,i): 
+        while(self.parent[i] != i): 
+            i = self.parent[i]
+        return i
 #Todo el código va a estar en una clase, esto porque 
 #si lo divido en varias clases no se puede realizar la conexión con el mouse 
 class AGPM: 
@@ -106,13 +130,11 @@ class AGPM:
     def boton_listo_handler_arist(self,event): 
         #pasar al siguiente que es escoger un inicial 
         self.fig.canvas.mpl_disconnect(self.cid) 
-        self.config_obtener_inicial()
-        print("se va a escoger al inicial")
+        self.config_ejecucion()
     def config_botones_aristas(self): 
         boton_listo = widgets.Button(description='listo')
         boton_listo.on_click(self.boton_listo_handler_arist)  
         self.box.children = [boton_listo]
-        print("se configuran los botones")
     @out1.capture()
     def onclick_aristas(self,event): 
         for i,cir in self.g.pos_nodos.items(): 
@@ -134,7 +156,7 @@ class AGPM:
         self.g.ady[u][v].peso = change.new 
     def agregar_widget_peso(self,u,v): 
         ch = list(self.box.children)
-        esc_peso = widgets.BoundedIntText(value=10,min=0,max=20,step=1,description='({},{})'.format(u,v),disabled=False)
+        esc_peso = widgets.BoundedIntText(value=10,min=0,max=100,step=1,description='({},{})'.format(u,v),disabled=False)
         esc_peso.observe(self.esc_peso_handler, names='value')
         ch.append(esc_peso)
         self.box.children = tuple(ch)
@@ -173,10 +195,65 @@ class AGPM:
         for i in self.extremos: 
             self.g.pos_nodos[i].img.set(facecolor = 'white')
         self.extremos = []
-#--------------------------------------------escoger inicial -------------------------
-    def config_obtener_inicial(self): 
-        print("se escoge al inicial")
+#--------------------------------------------ejecucion del algoritmo -------------------------
+    #indice de la arista 
+    ind_ar = 0 
+    ar_ord = None 
+    union_f = None
+    array_col = None 
+    color_map = None
+    def config_boton_listo_ej(self): 
+        boton_listo = widgets.Button(description='siguiente')
+        boton_listo.on_click(self.boton_listo_handler_ej)  
+        self.box.children = [boton_listo]
+    def obtener_aristas_ord(self): 
+        ars = [] 
+        ars_sp = [] 
+        for i in self.g.ady.keys(): 
+            for j in self.g.ady[i].keys(): 
+                if((i,j) not in ars_sp): 
+                    ars_sp.append((i,j))
+                    ars_sp.append((j,i))
+                    ars.append((i,j,self.g.ady[i][j].peso))
+        ars.sort(key = lambda x : x[2])
+        return ars
+    def colorear_vert(self): 
+        for i in range(0,self.ind): 
+            vert = self.g.pos_nodos[i]
+            vert.img.set(facecolor = self.array_col[i])
+    #entrada 
+    def config_ejecucion(self): 
+        self.config_boton_listo_ej()
+        self.union_f = Union_find(self.ind)
+        self.ar_ord = self.obtener_aristas_ord()
+        self.color_map = plt.get_cmap('tab20c', 1000)
+        frac = 1/self.ind
+        self.array_col = [self.color_map((i+1)*frac) for i in range(0,self.ind)]
+        self.colorear_vert()
+
+    def boton_listo_handler_ej(self,event): 
+        if(self.ind_ar == len(self.ar_ord)):
+            return
+        (u,v,p) = self.ar_ord[self.ind_ar]
+        if(self.union_f.find(u) !=  self.union_f.find(v)):
+            #colorea a todos con el color del grupo mas grande 
+            pu = self.union_f.find(u)
+            pv = self.union_f.find(v)
+            #el nuevo padre
+            p = pu
+            if(self.union_f.size[pu] < self.union_f.size[pv]): 
+                p = pv
+            self.union_f.unite(u,v)
+            for i in range(0,self.ind): 
+                if(self.union_f.find(i) == p): 
+                    self.g.pos_nodos[i].img.set(facecolor = self.array_col[p])
+            self.g.ady[u][v].linea.set(linewidth = 3)
+        else: 
+            self.g.ady[u][v].linea.set(linestyle = '--')
+            self.g.ady[u][v].anot.set(visible = False)
+            self.g.ady[u][v].anot.set(color = 'grey')
+        self.ind_ar = self.ind_ar + 1
 
 
-###------------------------------------------ejecucion del algoritmo-------------------
+
 estado = AGPM() 
