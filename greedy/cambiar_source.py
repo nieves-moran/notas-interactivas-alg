@@ -2,8 +2,9 @@ import json
 import sys
  
 # Opening JSON file
-notebook = sys.argv[1] 
-new_source = sys.argv[2] 
+nombre = sys.argv[1]
+notebook = nombre + ".ipynb" 
+new_source = nombre + ".py"
 note_f = open(notebook,"r")
 src_f = open(new_source,"r")
  
