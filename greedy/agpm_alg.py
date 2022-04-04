@@ -9,6 +9,7 @@ from IPython.display import display
 import ipywidgets as widgets
 from IPython.display import clear_output
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+import random 
 
 import math 
 %matplotlib nbagg
@@ -43,7 +44,7 @@ class Renglon:
 class Grafica: 
     #va de un entero a un diccionario con valor nodo 
     ady = None
-    #es un diccionario con nodo y un par 
+    #es un diccionario con hacia un circulo 
     pos_nodos = None
     def __init__(self): 
         self.ady = dict() 
@@ -134,10 +135,61 @@ class AGPM:
         #pasar al siguiente estado 
         self.fig.canvas.mpl_disconnect(self.cid) 
         self.config_obtener_aristas()
+    def generar_aristas_aleatorias(self,n): 
+        union_f = Union_find(n*n)
+        aristas = [] 
+        for i in range(0,n*n): 
+            for v in self.vecinos(i,n):
+                aristas.append((i,v)) 
+        arbol = []
+        for (u,v) in aristas: 
+            if(union_f.find(u) != union_f.find(v)): 
+                union_f.unite(u,v) 
+                arbol.append((u,v))
+        #aqui ya tiene las aristas que forma el arbol 
+        #agregar mas aristas 
+        for i in range(0,n*n): 
+            for v in self.vecinos(i,n): 
+                r = random.randint(0,1)
+                if( r % 2 == 1): 
+                    arbol.append((i,v))
+        ars_peso = []
+        for (u,v) in arbol: 
+            p = random.randint(1,50)
+            ars_peso.append((u,v,p))
+        return ars_peso
+    def poner_nodos(self,n): 
+        #una cuadricula de nodos de nxn 
+        for y in range(0,n): 
+            for x in range(0,n): 
+                c = Circle((x*self.rad*4,y*self.rad*4),radius = self.rad,facecolor = 'white',edgecolor = 'black')
+                cr = Circulo() 
+                anot = self.ax.annotate("{}".format(self.ind ), (x*self.rad*4,y*self.rad*4),color='black', weight='bold', fontsize=10, ha='center', va='center') 
+                self.ax.add_patch(c)
+                cr.pos = [y*self.rad*4,y*self.rad*4] 
+                cr.img = c 
+                self.g.pos_nodos[self.ind] = cr
+                self.ind = self.ind + 1
+                self.max_x_g = max(self.max_x_g,c.get_center()[0] + 2*self.rad)
+                self.max_y_g = max(self.max_y_g,c.get_center()[1] + 2*self.rad)
+        self.ax.relim()
+        self.ax.autoscale_view()
+    def boton_aleatoria_handler_vert(self,event): 
+        #poner nodos
+        self.poner_nodos(4)
+        ars_al = self.generar_aristas_aleatorias(4) 
+        for (u,v,p) in ars_al: 
+            self.agregar_arista(u,v,False)
+            self.g.ady[u][v].anot.set(text = "{}".format(p))
+            self.g.ady[u][v].peso = p 
+        # pasar a la configuracion de ejecucion  
+        self.config_ejecucion() 
     def config_botones(self): 
         boton_listo = widgets.Button(description='listo')
         boton_listo.on_click(self.boton_listo_handler_vert)  
-        self.box = widgets.VBox([boton_listo])
+        boton_aleatoria = widgets.Button(description='Generar aleatoria')
+        boton_aleatoria.on_click(self.boton_aleatoria_handler_vert)  
+        self.box = widgets.VBox([boton_listo,boton_aleatoria])
         display(self.box)
 
 ##-------------------funciones de la parte para obtener aristas-----------------------------
@@ -165,7 +217,7 @@ class AGPM:
                 if (i not in self.extremos): 
                     self.extremos.append(i)
                     if(len(self.extremos) == 2): 
-                        self.agregar_arista(self.extremos[0],self.extremos[1])
+                        self.agregar_arista(self.extremos[0],self.extremos[1],True)
                 else:
                     self.extremos.remove(i)
                     cir.img.set(facecolor = 'white')
@@ -180,7 +232,7 @@ class AGPM:
         esc_peso.observe(self.esc_peso_handler, names='value')
         ch.append(esc_peso)
         self.box.children = tuple(ch)
-    def agregar_arista(self,u,v):
+    def agregar_arista(self,u,v,widget):
         #si ya está, no la agregues 
         if( not ((v in self.g.ady and u in self.g.ady[v]) or (u in self.g.ady and v in self.g.ady[u]))): 
             xu,yu = self.g.pos_nodos[u].img.get_center() 
@@ -211,10 +263,22 @@ class AGPM:
             self.g.ady[v][u].linea = linea 
             self.g.ady[v][u].anot = anot
             #agregar el widget 
-            self.agregar_widget_peso(u,v)
+            if(widget): 
+                self.agregar_widget_peso(u,v)
         for i in self.extremos: 
             self.g.pos_nodos[i].img.set(facecolor = 'white')
         self.extremos = []
+    def vecinos(self,v,n):
+        #la grafia es de nxn y v es el vertice 
+        (x,y) = v // n  , v % n
+        v = [(x-1,y),(x+1,y),(x,y-1),(x,y+1)] 
+        vp = []
+        for (x,y) in v: 
+            if (0 <= x < n and 0 <= y < n): 
+                vp.append(x*n + y)
+        return vp 
+
+    
 #--------------------------------------------ejecucion del algoritmo -------------------------
     #indice de la arista 
     ind_ar = 0 
@@ -265,13 +329,16 @@ class AGPM:
         y = self.max_y_g 
         self.limpiar_anotacion_grupos() 
         #crear los grupos de colores 
+        print("son {} pos_nodos".format(len(self.g.pos_nodos)))
         for i in range(0,len(self.g.pos_nodos)):
             if(self.union_f.find(i) not in grupos ): 
                 grupos[self.union_f.find(i)] = [] 
             grupos[self.union_f.find(i)].append(i)
+        print("grupos tiene {}".format(len(grupos.items())))
         for j,g in grupos.items(): 
             r = Rectangle((x,y),width = self.rad,height = 1,facecolor = self.array_col[j],edgecolor = 'black') 
             self.ax.add_patch(r)
+            print("las coordenadas son {}".format(r.get_xy()))
             ren = Renglon() 
             ren.cuadro_color = r
             ren.anotacion = self.ax.text(x +3*self.rad,y,"{}".format(g))
@@ -297,7 +364,7 @@ class AGPM:
         else: 
             self.g.ady[u][v].linea.set(linestyle = '--')
             self.g.ady[u][v].anot.set(visible = False)
-            self.g.ady[u][v].anot.set(color = 'grey')
+            self.g.ady[u][v].linea.set(visible = False)
         self.actualiza_anot_grupos()
         self.ax.relim()
         self.ax.autoscale_view()
