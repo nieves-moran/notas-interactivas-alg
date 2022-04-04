@@ -1,6 +1,7 @@
 from cmath import atan
 from glob import glob
 from matplotlib.patches import Circle
+from matplotlib.patches import Rectangle
 from matplotlib.patches import Path
 from matplotlib.patches import PathPatch
 import matplotlib.pyplot as plt
@@ -32,6 +33,13 @@ def punto_medio(x1,y1,x2,y2,s):
     xp = xp + (x1 if x1 < x2 else x2) 
     yp = yp + (y1 if x1 < x2 else y2 )
     return (xp,yp)
+class Anot_grupos: 
+    renglones = None
+    def __init__(self): 
+        self.renglones = [] 
+class Renglon: 
+    cuadro_color = None 
+    anotacion = None 
 class Grafica: 
     #va de un entero a un diccionario con valor nodo 
     ady = None
@@ -88,6 +96,9 @@ class AGPM:
     box = None
     rad = 1
     ind = 0
+    #va a ser el máximo x de la gráfica 
+    max_x_g = float('-inf')
+    max_y_g = float('-inf')
     def __init__(self): 
         self.config_imagen() 
         self.config_botones()
@@ -97,19 +108,28 @@ class AGPM:
     def onclick_pos_vert(self,event): 
         #poner los vertices 
         c = Circle((event.xdata,event.ydata),radius = self.rad,facecolor = 'white',edgecolor = 'black')
+        self.max_x_g = max(self.max_x_g, event.xdata + self.rad)
+        self.max_y_g = max(self.max_y_g, event.ydata + self.rad)
         anot = self.ax.annotate("{}".format(self.ind), (event.xdata,event.ydata),color='black', weight='bold', fontsize=10, ha='center', va='center') 
         self.ax.add_patch(c)
         cr = Circulo() 
         cr.pos = [event.xdata,event.ydata] 
         cr.img = c 
         self.g.pos_nodos[self.ind] = cr
-        self.ind = self.ind + 1  
+        self.ind = self.ind + 1
+        self.ax.relim()
+        self.ax.autoscale_view()  
     def config_imagen(self): 
         self.fig,self.ax =  plt.subplots()  
         plt.gca().set_aspect('equal', adjustable='box')
-        self.ax.set_xlim(0,20)
-        self.ax.set_ylim(0,20)
-        #plt.axis('off')
+        #poner 4 puntos en donde quieres 
+        c = Circle((20,20),radius = 1, visible = False)
+        self.ax.add_patch(c)
+        c = Circle((0,0),radius = 1, visible = False)
+        self.ax.add_patch(c)
+        self.ax.relim()
+        self.ax.autoscale_view() 
+        plt.axis('off')
     def boton_listo_handler_vert(self,event): 
         #pasar al siguiente estado 
         self.fig.canvas.mpl_disconnect(self.cid) 
@@ -202,6 +222,7 @@ class AGPM:
     union_f = None
     array_col = None 
     color_map = None
+    anotacion_g = None 
     def config_boton_listo_ej(self): 
         boton_listo = widgets.Button(description='siguiente')
         boton_listo.on_click(self.boton_listo_handler_ej)  
@@ -227,10 +248,35 @@ class AGPM:
         self.union_f = Union_find(self.ind)
         self.ar_ord = self.obtener_aristas_ord()
         self.color_map = plt.get_cmap('tab20c', 1000)
+        #para el número de colores 
         frac = 1/self.ind
         self.array_col = [self.color_map((i+1)*frac) for i in range(0,self.ind)]
+        self.anotacion_g  = Anot_grupos()
         self.colorear_vert()
-
+    def limpiar_anotacion_grupos(self): 
+        for r in self.anotacion_g.renglones: 
+            r.cuadro_color.set(visible = False)
+            r.anotacion.set(visible = False) 
+        self.anotacion_g.renglones = []
+    def actualiza_anot_grupos(self): 
+        grupos = dict() 
+        #esta en self.max_x_g 
+        x = self.max_x_g + self.rad 
+        y = self.max_y_g 
+        self.limpiar_anotacion_grupos() 
+        #crear los grupos de colores 
+        for i in range(0,len(self.g.pos_nodos)):
+            if(self.union_f.find(i) not in grupos ): 
+                grupos[self.union_f.find(i)] = [] 
+            grupos[self.union_f.find(i)].append(i)
+        for j,g in grupos.items(): 
+            r = Rectangle((x,y),width = self.rad,height = 1,facecolor = self.array_col[j],edgecolor = 'black') 
+            self.ax.add_patch(r)
+            ren = Renglon() 
+            ren.cuadro_color = r
+            ren.anotacion = self.ax.text(x +3*self.rad,y,"{}".format(g))
+            self.anotacion_g.renglones.append( ren)
+            y = y - 2*self.rad  
     def boton_listo_handler_ej(self,event): 
         if(self.ind_ar == len(self.ar_ord)):
             return
@@ -252,6 +298,9 @@ class AGPM:
             self.g.ady[u][v].linea.set(linestyle = '--')
             self.g.ady[u][v].anot.set(visible = False)
             self.g.ady[u][v].anot.set(color = 'grey')
+        self.actualiza_anot_grupos()
+        self.ax.relim()
+        self.ax.autoscale_view()
         self.ind_ar = self.ind_ar + 1
 
 
