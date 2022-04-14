@@ -1,3 +1,4 @@
+
 from cmath import atan
 from glob import glob
 from sys import ps1
@@ -9,16 +10,18 @@ import matplotlib.pyplot as plt
 from IPython.display import display
 import ipywidgets as widgets
 from IPython.display import clear_output
+import random 
 import math 
 %matplotlib nbagg
-def punto_med(x1,y1,x2,y2): 
-    return (x1+y1/2), (x2 + y2)/2
-class obtener_entrada: 
-    boton = None  
 
-class envn: 
+#antes de dibujar tienes que ajustar 
+out1 = widgets.Output()
+display(out1)
+#es un diccionario es el ambiente
+class Env: 
     vars = dict() 
-class peticion:
+
+class Peticion:
     pet = None
     rect = None 
     p1 = None 
@@ -28,104 +31,47 @@ class peticion:
     ret_rect = None
     #anotacion en el retraso  
     ret_anot = None
-class peticiones:
+class Peticiones:
     elms = None  
-    mm_x = None 
-    mm_y = None
     def __init__(self): 
         self.elms = []
 class Retraso: 
     linea = None 
     anot = None 
     valor = 0 
-class ejecutar_algoritmo: 
-    ordenados = False 
-    #el ultimo intervalo  
-    ult_int = None 
-    ind = 0
-    fig = None 
-    boton_sig = None 
-    box = None 
-    ax = None
-    peticiones = None
-    ult_tiempo = 0
-    retraso = None
-    def config_botones(self):
-        self.boton_sig = widgets.Button(description='sigiuente')
-        self.boton_sig.on_click(self.boton_sig_handler)  
-        self.box = widgets.VBox([self.boton_sig])
-        display(self.box)
+class Ejecucion:   
+    peticiones = Peticiones()
+    ordenados = False  
+    ind = 0 
+    retraso = None 
+    ult_tiempo = 0 
     def config_imagen(self): 
-        self.fig, self.ax = plt.subplots()  
         plt.gca().set_aspect('equal', adjustable='box')
-        #plt.axis('off')
-    def __init__(self): 
-        self.config_imagen() 
-        self.config_botones()
-        self.obtener_posiciones() 
-        print(self.peticiones.mm_x)
-        print(self.peticiones.mm_y)
-        self.ajusta_limites(self.peticiones.mm_x[0],self.peticiones.mm_y[0])
-        self.ajusta_limites(self.peticiones.mm_x[1],self.peticiones.mm_y[1])
-        self.dibujar_peticiones() 
-    def dibujar_peticiones(self): 
+    def dibujar_peticiones(self,peticiones): 
         j = 0
-        for p in self.peticiones.elms:
-            r = Rectangle(p.p1,width = p.p2[0] - p.p1[0],height = 1,facecolor = 'white',edgecolor = 'black')
-            x = p.p1[0] + r.get_width()/2
-            y = p.p1[1] + 0.5 
-            anot = self.ax.annotate("$i_{}$".format(j), (x,y) ,color='black', weight='bold', fontsize=14, ha='center', va='center')
-            rt = Rectangle(p.ret,width = 0.1,height = 1)
-            r_anot = self.ax.annotate("$i_{}$".format(j), (rt.get_xy()[0] + 0.5,rt.get_xy()[1]+0.5) ,color='black', weight='bold', fontsize=14, ha='center', va='center')
-            self.ax.add_patch(r)
-            self.ax.add_patch(rt) 
+        x = 0 
+        y = 3*env.vars['rad'] 
+        for [t,d] in peticiones:
+            r = Rectangle((x,y),width = t,height = 1,facecolor = 'white',edgecolor = 'black')
+            anot =  env.vars['ax'].text(x +t/2, y + 0.5,"$t_{{ {} }}$".format(j),fontsize = 9,va = 'center',ha = 'center')
+            rt = Rectangle((d,y),width = 0.1,height = 1)
+            r_anot =  env.vars['ax'].text(d +0.5, y+0.5,"$d_{{ {} }}$".format(j),fontsize = 9,va = 'center',ha = 'center')
+            env.vars['ax'].add_patch(r)
+            env.vars['ax'].add_patch(rt) 
+            p = Peticion() 
+            p.p1 = [0,y]
+            p.p2 = [0 + t,y+1]
+            p.pet = [t,d]
             p.rect = r 
+            p.ret = [d,y]
             p.ret_rect = rt
             p.anot = anot 
-            p.ret_anot = r_anot  
+            p.ret_anot = r_anot
+            self.peticiones.elms.append(p)
+            y = y + env.vars['rad']*3  
             j = j + 1
-         
-    def ajusta_limites(self,x,y):
-        error = 1; 
-        (xm,xM) = self.ax.get_xlim() 
-        (ym,yM) = self.ax.get_ylim() 
-        if x >= xM: 
-            xM = x + error 
-        if x <= xm: 
-            xm = x -error 
-        if y >= yM: 
-            yM = y + error
-        if y <= ym: 
-            ym = y - error 
-        self.ax.set_xlim(xm,xM)
-        self.ax.set_ylim(ym,yM)
-    #la linea de todos los intervalos va a estar en 0 
-    def obtener_posiciones(self): 
-        print("obtener posiciones")
-        mx = float('0')
-        Mx = float('-inf')
-        my = float('0')
-        My = float('-inf')
-        y = 4
-        pet = env.vars['peticiones']
-        #p= [t,r] tiempo y retraso 
-        self.peticiones = peticiones()
-        for p in pet: 
-            pt = peticion()
-            pt.pet = p
-            pt.p1 = [0,y]
-            pt.p2 = [0 + p[0],y+1]
-            pt.ret = [p[1],y]
-            self.peticiones.elms.append(pt)
-            #actualiza_limites
-            mx = min(mx,pt.p1[0],pt.p2[0],pt.ret[0])
-            Mx = max(Mx,pt.p1[0],pt.p2[0],pt.ret[0])
-            my = min(my,pt.p1[1],pt.p2[1],pt.ret[1])
-            My = max(My,pt.p1[1],pt.p2[1],pt.ret[1])
-            y = y + 2  
-        self.peticiones.mm_x = [mx,Mx]
-        self.peticiones.mm_y = [my,My]
-   
+        env.vars['ax'].relim()
+        env.vars['ax'].autoscale_view()
     def ordenar_pet(self): 
         self.peticiones.elms.sort(key = lambda p : p.pet[1])
         #reacomodarlos 
@@ -140,8 +86,10 @@ class ejecutar_algoritmo:
             p.anot.set(y = p.p1[1] + 0.5)
             p.ret_anot.set(y  = p.ret_rect.get_xy()[1] + 0.5) 
             p.ret_anot.set(x  = p.ret_rect.get_xy()[0] + 0.5) 
-            y = y + 2 
-    def boton_sig_handler(self,event): 
+            y = y + 3 
+        env.vars['ax'].relim()
+        env.vars['ax'].autoscale_view()
+    def siguiente_paso(self):
         if(self.ind == len(self.peticiones.elms) ): 
             return 
         if(not self.ordenados): 
@@ -149,15 +97,13 @@ class ejecutar_algoritmo:
             self.ordenados = True
         else: 
             sig_pet = self.peticiones.elms[self.ind]
-            #ajustar la imagen 
-            self.ajusta_limites(self.ult_tiempo + sig_pet.pet[0],0)
             #es 0 porque ahi (en esa y) estan los que vamos agregando
             sig_pet.rect.set(xy = (self.ult_tiempo,0))
             sig_pet.p1 = (self.ult_tiempo,0)
             sig_pet.p2 = (sig_pet.p1[0]+sig_pet.pet[0],1)
-            self.ult_tiempo = self.ult_tiempo + sig_pet.pet[0]
             sig_pet.anot.set(x = sig_pet.p1[0] + sig_pet.rect.get_width()/2)
             sig_pet.anot.set(y = sig_pet.p1[1] + 0.5)
+            self.ult_tiempo = self.ult_tiempo + sig_pet.pet[0]
             self.ind = self.ind  + 1
             #poner y mover la linea de retraso  
             if(self.ult_tiempo > sig_pet.ret_rect.get_xy()[0]):   
@@ -165,15 +111,49 @@ class ejecutar_algoritmo:
                     self.retraso = Retraso()
                     self.retraso.valor = self.ult_tiempo - sig_pet.ret_rect.get_xy()[0]
                     self.retraso.linea = PathPatch(Path([(sig_pet.ret_rect.get_xy()[0],2),(self.ult_tiempo,2)]), edgecolor='red')
-                    self.retraso.anot = self.ax.annotate("${}$".format(self.retraso.valor), (sig_pet.ret_rect.get_xy()[0] + self.retraso.valor/2,2.5) ,color='black', weight='bold', fontsize=10, ha='center', va='center')
-                    self.ax.add_patch(self.retraso.linea) 
+                    self.retraso.anot = env.vars['ax'].text(sig_pet.ret_rect.get_xy()[0] + self.retraso.valor/2, 2.5,"${}$".format(self.retraso.valor),color='black', weight='bold', fontsize=10, ha='center', va='center')
+                    env.vars['ax'].add_patch(self.retraso.linea) 
                 else: 
                     if(self.retraso.valor < self.ult_tiempo - sig_pet.ret_rect.get_xy()[0]): 
                         self.retraso.valor = self.ult_tiempo - sig_pet.ret_rect.get_xy()[0]
                         self.retraso.anot.set(x = sig_pet.ret_rect.get_xy()[0] + self.retraso.valor/2)
                         self.retraso.anot.set(text = "${}$".format(self.retraso.valor))
                         self.retraso.linea.set(path = Path([(sig_pet.ret_rect.get_xy()[0],2),(self.ult_tiempo,2)]))
+        env.vars['ax'].relim()
+        env.vars['ax'].autoscale_view()
+
+    @out1.capture()
+    def teclas_handler(self,event): 
+        if(event.key == 'n'): 
+            self.siguiente_paso() 
+        if(event.key == '-'):
+            self.zoom_menos()  
+        elif(event.key == '+'): 
+            self.zoom_mas() 
+    def zoom_mas(self): 
+        x,y = env.vars['fig'].get_size_inches()
+        env.vars['fig'].set_size_inches(x+1,y+1)
+    def zoom_menos(self): 
+        x,y = env.vars['fig'].get_size_inches()
+        env.vars['fig'].set_size_inches(x-1,y-1)
+    def config_teclas(self): 
+        env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
     
-env = envn()
-env.vars['peticiones'] = [(3,6),(5,10),(1,2),(3,12),(2,4),(5,17),(6,10),(3,6)]
-estado = ejecutar_algoritmo() 
+    def crear_peticiones_aleatorias(self): 
+        peticiones = [] 
+        for i in range(0,random.randint(5,10)):
+            t = random.randint(5,15)
+            d = random.randint(t + 1,t + 50) 
+            peticiones.append([t,d])
+        return peticiones 
+    def __init__(self): 
+        self.config_imagen()
+        self.config_teclas()
+        self.dibujar_peticiones(self.crear_peticiones_aleatorias())  
+
+env = Env() 
+env.vars['fig'],env.vars['ax'] = plt.subplots()
+env.vars['rad'] = 1 
+env.vars['cid_t'] = None
+env.vars['e1'] = Ejecucion() 
+ 
