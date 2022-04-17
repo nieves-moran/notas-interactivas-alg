@@ -41,7 +41,6 @@ class Arbol:
     raiz = None 
     vertices = None 
     aristas = None 
-    n = 0 
     n_nodos = 0 
     def __init__(self):
         self.raiz = Vertice()
@@ -56,7 +55,7 @@ class Vertice:
     anotc = None 
     padre = None
     hijos = None
-    valor =None
+    valor = None
     def __init__(self): 
         self.hijos = []
 class Arista: 
@@ -81,16 +80,16 @@ def entre_hijos(n):
     return (xp + xu) /2 
 def limpiar_arbol(): 
     arbol = env.vars['arbol']
+    #print(arbol.aristas)
     for _,v in arbol.vertices.items(): 
         if(v.circ != None): 
             v.circ.set(visible = False)
+            v.anot.set(visible = False)
         v.circ = None 
-        for u in v.hijos: 
-            if((v,u) in arbol.aristas): 
-                if(arbol.aristas[(v,u)].linea != None): 
-                    arbol.aristas[(v,u)].linea.set(visible = False)
-                    arbol.aristas[(v,u)].anot.set(visible = False)
-                arbol.aristas[(v,u)].linea = None 
+    for (v,u) in arbol.aristas.keys():
+        if(arbol.aristas[(v,u)].linea != None): 
+            arbol.aristas[(v,u)].linea.set(visible = False)
+    arbol.aristas = dict() 
 def dibujar_arbol():  
     limpiar_arbol() 
     rad = env.vars['rad']
@@ -127,6 +126,7 @@ def dibujar_arbol():
             if((v,h) not in arbol.aristas): 
                 arbol.aristas[(v,h)] = Arista() 
             arbol.aristas[(v,h)].linea = linea
+    print(len(arbol.aristas))
     env.vars['ax'].relim()
     env.vars['ax'].autoscale_view()
 #frecuencias es un diccionario de letra a un numero
@@ -153,11 +153,36 @@ class Ejecucion:
             v.valor = f 
             v.padre = arbol.raiz
             arbol.raiz.hijos.append(v) 
+            arbol.vertices[arbol.n_nodos] = v 
+            arbol.n_nodos = arbol.n_nodos + 1
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
 
     def siguiente_paso(self):
-        print('ejecuta el siguiente paso ahora')
+        #tomar los dos nodos hijos del 0 que tienen la frecuencia mas chica 
+        arbol = env.vars['arbol']
+        lista = []
+        for v in arbol.raiz.hijos: 
+            lista.append((v.valor,v))
+        lista.sort(key = (lambda elem : elem[0]))
+        #tomas los dos primeros n1 n2 
+        v1 = lista[0][1]
+        lista.pop(0)
+        v2 = lista[0][1]
+        lista.pop(0)
+        n_vert = Vertice() 
+        n_vert.valor = float("{:.2f}".format(v1.valor + v2.valor)) 
+        arbol.vertices[arbol.n_nodos] = n_vert 
+        arbol.n_nodos = arbol.n_nodos + 1
+        v1.padre = n_vert  
+        v2.padre = n_vert
+        n_vert.hijos = [v1,v2]
+        #eliminar hijos del 0
+        arbol.raiz.hijos.remove(v1)
+        arbol.raiz.hijos.remove(v2)
+        arbol.raiz.hijos.append(n_vert)
+        n_vert.padre = arbol.raiz 
+        dibujar_arbol() 
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
