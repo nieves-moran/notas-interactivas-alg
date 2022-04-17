@@ -142,6 +142,7 @@ class Env:
     vars = dict()  
 
 class Ejecucion:  
+    aristas_coloreadas = [] 
     def obtener_frecuencias(self): 
         cad = "hfjadhfjhadkfhadjfhakhfdjkhadkjfhadkjhfsqiequropqjdhfjkadh"
         freq = dict() 
@@ -189,9 +190,29 @@ class Ejecucion:
         arbol.raiz.hijos.append(n_vert)
         n_vert.padre = arbol.raiz 
         dibujar_arbol() 
+    def colorea_aristas(self,actual): 
+        arbol = env.vars['arbol']
+        #quitar el color a las que están coloreadas 
+        for (u,v) in self.aristas_coloreadas: 
+            arbol.aristas[(u,v)].linea.set(color = 'black')
+            arbol.aristas[(u,v)].linea.set(linewidth = 1)
+        while(actual.padre != None): 
+            arbol.aristas[(actual.padre,actual)].linea.set(color = 'blue')
+            arbol.aristas[(actual.padre,actual)].linea.set(linewidth = 3)
+            self.aristas_coloreadas.append((actual.padre,actual))
+            actual = actual.padre 
+
     @out1.capture() 
     def handler_mouse(self,event): 
-        print("se presiona")
+        if(event.xdata == None or event.ydata == None): 
+            return 
+        arbol = env.vars['arbol']
+        for k,h in arbol.vertices.items():
+            if(not h.hijos): 
+                x,y = h.circ.get_center() 
+                if((x - event.xdata)**2 + (y - event.ydata)**2 <= env.vars['rad']):
+                    self.colorea_aristas(h)
+                    break
     def configuracion_mouse_codif(self):  
         env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.handler_mouse) 
     def etiqueta_arbol(self): 
