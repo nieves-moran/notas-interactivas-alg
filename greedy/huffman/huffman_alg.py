@@ -89,6 +89,8 @@ def limpiar_arbol():
     for (v,u) in arbol.aristas.keys():
         if(arbol.aristas[(v,u)].linea != None): 
             arbol.aristas[(v,u)].linea.set(visible = False)
+        if(arbol.aristas[(v,u)].anot != None): 
+            arbol.aristas[(v,u)].anot.set(visible = False)
     arbol.aristas = dict() 
 def dibujar_arbol():  
     limpiar_arbol() 
@@ -126,7 +128,12 @@ def dibujar_arbol():
             if((v,h) not in arbol.aristas): 
                 arbol.aristas[(v,h)] = Arista() 
             arbol.aristas[(v,h)].linea = linea
-    print(len(arbol.aristas))
+            xm,ym = punto_medio(xi,yi,xj,yj,1,0.5)
+            if(env.vars['anotar']): 
+                etiq = '0'
+                if(v != arbol.raiz and h == v.hijos[1]): 
+                    etiq = '1'
+                arbol.aristas[(v,h)].anot = env.vars['ax'].text(xm, ym, etiq,fontsize = 9,ha='center', va='center') 
     env.vars['ax'].relim()
     env.vars['ax'].autoscale_view()
 #frecuencias es un diccionario de letra a un numero
@@ -136,7 +143,7 @@ class Env:
 
 class Ejecucion:  
     def obtener_frecuencias(self): 
-        cad = "hfjadhfjhadkfhadjfhakjdhfjkadh"
+        cad = "hfjadhfjhadkfhadjfhakhfdjkhadkjfhadkjhfsqiequropqjdhfjkadh"
         freq = dict() 
         for c in cad: 
             if(c not in freq): 
@@ -158,8 +165,7 @@ class Ejecucion:
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
 
-    def siguiente_paso(self):
-        #tomar los dos nodos hijos del 0 que tienen la frecuencia mas chica 
+    def construye(self): 
         arbol = env.vars['arbol']
         lista = []
         for v in arbol.raiz.hijos: 
@@ -178,11 +184,29 @@ class Ejecucion:
         v2.padre = n_vert
         n_vert.hijos = [v1,v2]
         #eliminar hijos del 0
-        arbol.raiz.hijos.remove(v1)
+        arbol.raiz.hijos.remove(v1) 
         arbol.raiz.hijos.remove(v2)
         arbol.raiz.hijos.append(n_vert)
         n_vert.padre = arbol.raiz 
         dibujar_arbol() 
+    @out1.capture() 
+    def handler_mouse(self,event): 
+        print("se presiona")
+    def configuracion_mouse_codif(self):  
+        env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.handler_mouse) 
+    def etiqueta_arbol(self): 
+        if(env.vars['anotar']): 
+            return
+        env.vars['anotar'] = True
+        dibujar_arbol()
+        self.configuracion_mouse_codif()  
+    def siguiente_paso(self):
+        #tomar los dos nodos hijos del 0 que tienen la frecuencia mas chica 
+        arbol = env.vars['arbol']
+        if(len(arbol.raiz.hijos) == 1): 
+            self.etiqueta_arbol() 
+        else: 
+            self.construye() 
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -209,4 +233,5 @@ env.vars['arbol'] = Arbol()
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
 env.vars['rad'] = 1 
 env.vars['cid_t'] = None
+env.vars['anotar'] = False
 env.vars['e1'] = Ejecucion() 
