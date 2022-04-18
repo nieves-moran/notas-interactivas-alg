@@ -66,16 +66,33 @@ class Ejecucion:
     m = None 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.axis('off')
 
     def siguiente_paso(self):
         #print('ejecuta el siguiente paso')
         i = self.ind_i 
         j = self.ind_j
+        if(i == self.n or j == self.m): 
+            return 
         mat = env.vars['mat']
         M = 0 
+        x,y = mat.celdas[i][j].rect.get_xy() 
+        flecha_ant = None 
         if(self.cad1[i] == self.cad2[j]): 
-            M = 1 + (mat.celdas[i-1][j-1].valor if 0 <= i - 1 and 0 <= j -1 else 0)
-        M = max(M,mat.celdas[i-1][j].valor if 0 <= i - 1 else 0,mat.celdas[i][j-1].valor if 0 <= j - 1 else 0)   
+            M = 1 
+            if (0 <= i - 1 and 0 <= j -1): 
+                fecha_ant = plt.arrow(x+1, y+2, -1, 1,width = 0.2,head_length = 1,facecolor = 'white' ) 
+                M = M + mat.celdas[i-1][j-1].valor
+        if(0 <= i - 1 and mat.celdas[i-1][j].valor > M): 
+            if(flecha_ant != None): 
+                flecha_ant.set(visible = False)  
+            flecha_ant = plt.arrow(x+1.5, y+2, 0, 1,width = 0.2,head_length = 1,facecolor = 'white' ) 
+            M = mat.celdas[i-1][j].valor
+        if( 0 <= j - 1 and mat.celdas[i][j-1].valor > M ):
+            if(flecha_ant != None): 
+                flecha_ant.set(visible = False)  
+            plt.arrow(x+1, y+2, -1, 0,width = 0.2,head_length = 1,facecolor = 'white' ) 
+            M = mat.celdas[i][j-1].valor    
         mat.celdas[i][j].valor = M 
         mat.celdas[i][j].anot.set(text = M)
         self.ind_j = self.ind_j + 1
@@ -99,8 +116,8 @@ class Ejecucion:
     def config_teclas(self): 
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
     def crear_matriz(self): 
-        self.cad1 = "ababc"
-        self.cad2 = "abababa"
+        self.cad1 = "ababccac"
+        self.cad2 = "ababccabac"
         self.n = len(self.cad1)
         self.m = len(self.cad2)
         env.vars['mat'] = Matriz(self.n,self.m)
