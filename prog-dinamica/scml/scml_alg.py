@@ -60,11 +60,28 @@ class Env:
 class Ejecucion:  
     cad1 = ""
     cad2 = ""
+    ind_i = 0 
+    ind_j = 0 
+    n = None 
+    m = None 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
 
     def siguiente_paso(self):
-        print('ejecuta el siguiente paso')
+        #print('ejecuta el siguiente paso')
+        i = self.ind_i 
+        j = self.ind_j
+        mat = env.vars['mat']
+        M = 0 
+        if(self.cad1[i] == self.cad2[j]): 
+            M = 1 + (mat.celdas[i-1][j-1].valor if 0 <= i - 1 and 0 <= j -1 else 0)
+        M = max(M,mat.celdas[i-1][j].valor if 0 <= i - 1 else 0,mat.celdas[i][j-1].valor if 0 <= j - 1 else 0)   
+        mat.celdas[i][j].valor = M 
+        mat.celdas[i][j].anot.set(text = M)
+        self.ind_j = self.ind_j + 1
+        if(self.ind_j == self.m): 
+            self.ind_j = 0 
+            self.ind_i = self.ind_i + 1 
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -84,9 +101,9 @@ class Ejecucion:
     def crear_matriz(self): 
         self.cad1 = "ababc"
         self.cad2 = "abababa"
-        n = len(self.cad1)
-        m = len(self.cad2)
-        env.vars['mat'] = Matriz(n,m)
+        self.n = len(self.cad1)
+        self.m = len(self.cad2)
+        env.vars['mat'] = Matriz(self.n,self.m)
     def dibujar_matriz(self):
         mat = env.vars['mat']
         x,y = 0,0  
@@ -97,7 +114,7 @@ class Ejecucion:
                 w,h = 3,3
                 cel.rect = Rectangle((x,y),width = w,height = h,facecolor = 'white',edgecolor = 'black')
                 env.vars['ax'].add_patch(cel.rect) 
-                cel.anot =  env.vars['ax'].text(x+w/2, y+h/2,"{},{}".format(i,j),fontsize = 9,ha='center', va='center') 
+                cel.anot =  env.vars['ax'].text(x+w/2, y+h/2,"".format(i,j),fontsize = 9,ha='center', va='center') 
                 mat.celdas[i][j] = cel
                 x = x + 3
             y = y - 3 
