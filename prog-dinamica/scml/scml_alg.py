@@ -45,11 +45,21 @@ class Celda:
     valor = None 
     rect = None
     anot = None
-
+class Etiquetas: 
+    reng = None
+    cols = None
+    def __init__(self,n,m): 
+        self.reng = [Etiq() for i in range(0,n)]
+        self.cols = [Etiq() for j in range(0,m)]
+class Etiq: 
+    rect = None
+    anot = None 
 class Env:
     vars = dict()  
 
 class Ejecucion:  
+    cad1 = ""
+    cad2 = ""
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
 
@@ -72,10 +82,10 @@ class Ejecucion:
     def config_teclas(self): 
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
     def crear_matriz(self): 
-        cad1 = "ababa"
-        cad2 = "abababa"
-        n = len(cad1)
-        m = len(cad2)
+        self.cad1 = "ababc"
+        self.cad2 = "abababa"
+        n = len(self.cad1)
+        m = len(self.cad2)
         env.vars['mat'] = Matriz(n,m)
     def dibujar_matriz(self):
         mat = env.vars['mat']
@@ -93,15 +103,37 @@ class Ejecucion:
             y = y - 3 
         env.vars['ax'].relim()
         env.vars['ax'].autoscale_view()
-        print("dibujar matriz")
+    def poner_etiquetas(self):
+        mat = env.vars['mat'] 
+        n = len(mat.celdas)
+        m = len(mat.celdas[0])
+        et = Etiquetas(n,m)
+        env.vars['etq'] = et
+        x,y = -3,0
+        w,h = 3,3
+        for i in range(0,n):
+            et.reng[i].rect = Rectangle((x,y),width = w,height = h,facecolor = 'white',edgecolor = 'black',visible = False)
+            env.vars['ax'].add_patch(et.reng[i].rect) 
+            et.reng[i].anot = env.vars['ax'].text(x+w/2, y+h/2,"{}".format(self.cad1[i]),fontsize = 9,ha='center', va='center')  
+            y = y - 3 
+        x,y = 0,3
+        for i in range(0,m):
+            et.cols[i].rect = Rectangle((x,y),width = w,height = h,facecolor = 'white',edgecolor = 'black',visible = False)
+            env.vars['ax'].add_patch(et.cols[i].rect)  
+            et.cols[i].anot = env.vars['ax'].text(x+w/2, y+h/2,"{}".format(self.cad2[i]),fontsize = 9,ha='center', va='center')  
+            x = x + 3 
+        env.vars['ax'].relim()
+        env.vars['ax'].autoscale_view()
     def __init__(self): 
         self.config_imagen()
         self.config_teclas()
         self.crear_matriz()
         self.dibujar_matriz() 
+        self.poner_etiquetas()
 
 env = Env() 
 env.vars['mat'] = None
+env.vars['etq'] = None 
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
 env.vars['rad'] = 1 
 env.vars['cid_t'] = None
