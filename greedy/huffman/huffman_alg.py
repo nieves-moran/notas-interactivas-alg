@@ -52,10 +52,12 @@ class Arbol:
 
 class Vertice: 
     circ = None 
-    anotc = None 
+    anotf = None 
+    etiq = None
     padre = None
     hijos = None
-    valor = None
+    valor = 0
+    letra = ""
     def __init__(self): 
         self.hijos = []
 class Arista: 
@@ -64,7 +66,7 @@ class Arista:
 def dfs(n,arbol,prof,y): 
     if(not n.hijos): 
         prof[n] = y 
-    for i in n.hijos : 
+    for i in n.hijos :  
         dfs(i,arbol,prof,y - 4*env.vars['rad'])
 
 def prof_hojas(arbol): 
@@ -84,7 +86,8 @@ def limpiar_arbol():
     for _,v in arbol.vertices.items(): 
         if(v.circ != None): 
             v.circ.set(visible = False)
-            v.anot.set(visible = False)
+            v.anotf.set(visible = False)
+            v.etiq.set(visible = False)
         v.circ = None 
     for (v,u) in arbol.aristas.keys():
         if(arbol.aristas[(v,u)].linea != None): 
@@ -97,6 +100,7 @@ def dibujar_arbol():
     rad = env.vars['rad']
     arbol = env.vars['arbol']
     prof_h = prof_hojas(arbol) 
+    inv = [arbol.raiz]
     cola = [] 
     x = 0
     for i,v in arbol.vertices.items(): 
@@ -108,8 +112,12 @@ def dibujar_arbol():
     while(cola): 
         n,x,y = cola[0]
         cola.pop(0)
-        c = Circle((x,y),radius = rad,facecolor = 'white',edgecolor = 'black')
-        n.anot =  env.vars['ax'].text(x, y,n.valor,fontsize = 9,ha='center', va='center') 
+        vis = True
+        if(n in inv):
+            vis = False 
+        c = Circle((x,y),radius = rad,facecolor = 'white',edgecolor = 'black',visible = vis)
+        n.anotf =  env.vars['ax'].text(x, y+0.3,"{:.2f}".format(n.valor),fontsize = 9,ha='center', va='center',visible = vis) 
+        n.etiq =  env.vars['ax'].text(x, y-0.3,"{}".format(n.letra).format(n.valor),fontsize = 9,ha='center', va='center',visible = vis) 
         n.circ = c  
         env.vars['ax'].add_patch(c)
         p = n.padre
@@ -121,9 +129,12 @@ def dibujar_arbol():
                 cola.append((p,entre_hijos(p),y + 4*rad)) 
     for i,v in arbol.vertices.items(): 
         for h in v.hijos:  
+            vis = True 
+            if v in inv: 
+                vis = False
             xi,yi = v.circ.get_center()
             xj,yj = h.circ.get_center()
-            linea = PathPatch(Path([inter_points(env.vars['rad'],xi,yi,xj,yj),inter_points(env.vars['rad'],xj,yj,xi,yi)]), facecolor='none', edgecolor='black')
+            linea = PathPatch(Path([inter_points(env.vars['rad'],xi,yi,xj,yj),inter_points(env.vars['rad'],xj,yj,xi,yi)]), facecolor='none', edgecolor='black',visible = vis)
             env.vars['ax'].add_patch(linea)
             if((v,h) not in arbol.aristas): 
                 arbol.aristas[(v,h)] = Arista() 
@@ -133,7 +144,7 @@ def dibujar_arbol():
                 etiq = '0'
                 if(v != arbol.raiz and h == v.hijos[1]): 
                     etiq = '1'
-                arbol.aristas[(v,h)].anot = env.vars['ax'].text(xm, ym, etiq,fontsize = 9,ha='center', va='center') 
+                arbol.aristas[(v,h)].anot = env.vars['ax'].text(xm, ym, etiq,fontsize = 9,ha='center', va='center',visible = vis) 
     env.vars['ax'].relim()
     env.vars['ax'].autoscale_view()
 #frecuencias es un diccionario de letra a un numero
@@ -152,7 +163,7 @@ class Ejecucion:
             freq[c] = freq[c] + 1
         n = len(cad) 
         for c in freq.keys(): 
-            freq[c] = float("{:.2f}".format(freq[c]/n)) 
+            freq[c] = freq[c]/n 
         return freq
     def crear_arbol_inicial(self,frecuencias): 
         arbol = env.vars['arbol']
@@ -160,7 +171,8 @@ class Ejecucion:
             v = Vertice()  
             v.valor = f 
             v.padre = arbol.raiz
-            arbol.raiz.hijos.append(v) 
+            arbol.raiz.hijos.append(v)
+            v.letra = l  
             arbol.vertices[arbol.n_nodos] = v 
             arbol.n_nodos = arbol.n_nodos + 1
     def config_imagen(self): 
@@ -178,7 +190,7 @@ class Ejecucion:
         v2 = lista[0][1]
         lista.pop(0)
         n_vert = Vertice() 
-        n_vert.valor = float("{:.2f}".format(v1.valor + v2.valor)) 
+        n_vert.valor = v1.valor + v2.valor 
         arbol.vertices[arbol.n_nodos] = n_vert 
         arbol.n_nodos = arbol.n_nodos + 1
         v1.padre = n_vert  
