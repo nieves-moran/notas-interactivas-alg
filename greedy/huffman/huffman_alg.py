@@ -146,15 +146,30 @@ def dibujar_arbol():
                 arbol.aristas[(v,h)].anot = env.vars['ax'].text(xm, ym, etiq,fontsize = 9,ha='center', va='center',visible = vis) 
     env.vars['ax'].relim()
     env.vars['ax'].autoscale_view()
+class Cuadro_codigo: 
+    anot = None 
+    rect = None 
 #frecuencias es un diccionario de letra a un numero
-
 class Env:
     vars = dict()  
 
 class Ejecucion:
     siguientes = []  
     nuevo = None  
-    aristas_coloreadas = [] 
+    aristas_coloreadas = []
+    cuad_cod = None  
+    def dibujar_cuadro_codigo(self,x,y): 
+        #dibuja el cuadro con el codigo
+        self.cuad_cod =  Cuadro_codigo() 
+        self.cuad_cod.rect  = Rectangle((x,y),width = 10,height = 3) 
+        env.vars['ax'].add_patch(self.cuad_cod.rect)
+        self.cuad_cod.anot = env.vars['ax'].text(x, y,"la codificacion es",fontsize = 9,bbox=dict(facecolor='none', edgecolor='black', boxstyle='round,pad=1',alpha=0.1)) 
+        env.vars['ax'].relim()
+        env.vars['ax'].autoscale_view()
+    def limpiar_cuadro_codigo(self): 
+        if(self.cuad_cod != None): 
+            self.cuad_cod.rect.set(visible = False)
+            self.cuad_cod.anot.set(visible = False)
     def obtener_frecuencias(self): 
         cad = "hfjadhfjhadkfhadjfhakhfdjkhadkjfhadkjhfsqiequropqjdhfjkadh"
         freq = dict() 
@@ -254,9 +269,14 @@ class Ejecucion:
                 x,y = h.circ.get_center() 
                 if((x - event.xdata)**2 + (y - event.ydata)**2 <= env.vars['rad']):
                     self.colorea_aristas(h)
+                    self.dibujar_cuadro_codigo(x,y-3) 
                     break
+    @out1.capture() 
+    def handler_mouse_release(self,event): 
+        self.limpiar_cuadro_codigo() 
     def configuracion_mouse_codif(self):  
-        env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.handler_mouse) 
+        env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.handler_mouse)
+        env.vars['cid_m_r'] = env.vars['fig'].canvas.mpl_connect('button_release_event', self.handler_mouse_release)
     def etiqueta_arbol(self): 
         if(env.vars['anotar']): 
             return
@@ -297,5 +317,6 @@ env.vars['arbol'] = Arbol()
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
 env.vars['rad'] = 1 
 env.vars['cid_t'] = None
+env.vars['cid_m_r'] = None
 env.vars['anotar'] = False
 env.vars['e1'] = Ejecucion() 
