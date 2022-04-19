@@ -53,7 +53,7 @@ class Mergesort:
     ax = None 
     fig = None 
     arb_rec = None
-    arr_entrada = [random.randint(0,99) for i in range(0,32)]
+    arr_entrada = [random.randint(0,99) for i in range(0,16)]
     rad=  1
     cid = None
 #--------------------------obtener entrada --------------------
