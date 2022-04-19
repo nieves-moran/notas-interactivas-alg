@@ -82,7 +82,6 @@ def entre_hijos(n):
     return (xp + xu) /2 
 def limpiar_arbol(): 
     arbol = env.vars['arbol']
-    #print(arbol.aristas)
     for _,v in arbol.vertices.items(): 
         if(v.circ != None): 
             v.circ.set(visible = False)
@@ -152,7 +151,9 @@ def dibujar_arbol():
 class Env:
     vars = dict()  
 
-class Ejecucion:  
+class Ejecucion:
+    siguientes = []  
+    nuevo = None  
     aristas_coloreadas = [] 
     def obtener_frecuencias(self): 
         cad = "hfjadhfjhadkfhadjfhakhfdjkhadkjfhadkjhfsqiequropqjdhfjkadh"
@@ -177,7 +178,35 @@ class Ejecucion:
             arbol.n_nodos = arbol.n_nodos + 1
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
-
+        plt.axis("off")
+    def dos_mas_chicos(self):
+        arbol = env.vars['arbol'] 
+        lista = []
+        for v in arbol.raiz.hijos: 
+            lista.append((v.valor,v))
+        lista.sort(key = (lambda elem : elem[0]))
+        return lista
+    def colorea_siguientes_nuevo(self,nuevo):
+        #elimina los cambios en los anteriores 
+        if(self.nuevo != None): 
+            self.nuevo.circ.set(edgecolor = 'black')
+        for v in self.siguientes: 
+            v.circ.set(facecolor = 'white')
+        l = self.dos_mas_chicos() 
+        #si solo hay un nodo solo pintalo de rojo 
+        if(len(l) == 1): 
+            nuevo.circ.set(edgecolor = 'red')
+            self.nuevo = nuevo 
+            return 
+        #si hay dos o más, pinta de amarillo los nuevo y de rojo el combinado 
+        v1 = l[0][1]
+        v2 = l[1][1]
+        v1.circ.set(facecolor = 'yellow')
+        v2.circ.set(facecolor = 'yellow')
+        if(nuevo != None): 
+            nuevo.circ.set(edgecolor = 'red')
+        self.siguientes = [v1,v2]
+        self.nuevo = nuevo
     def construye(self): 
         arbol = env.vars['arbol']
         lista = []
@@ -202,6 +231,7 @@ class Ejecucion:
         arbol.raiz.hijos.append(n_vert)
         n_vert.padre = arbol.raiz 
         dibujar_arbol() 
+        self.colorea_siguientes_nuevo(n_vert) 
     def colorea_aristas(self,actual): 
         arbol = env.vars['arbol']
         #quitar el color a las que están coloreadas 
@@ -261,6 +291,7 @@ class Ejecucion:
         self.config_teclas()
         self.crear_arbol_inicial(self.obtener_frecuencias())
         dibujar_arbol() 
+        self.colorea_siguientes_nuevo(None) 
 env = Env() 
 env.vars['arbol'] = Arbol() 
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
