@@ -93,8 +93,8 @@ def entre_hijos(n):
     arbol = env.vars['arbol']
     ph = n.hijos[0]
     uh =  n.hijos[-1]
-    xp,_ = ph.circ.get_center()
-    xu,_ = uh.circ.get_center()
+    xp = ph.arreglo.elms[0].rect.get_xy()[0]
+    xu = uh.arreglo.elms[0].rect.get_xy()[0] + len(uh.arreglo.elms)*3
     return (xp + xu) /2 
 def limpiar_arreglo(arr): 
     for c in arr.elms: 
@@ -103,15 +103,11 @@ def limpiar_arreglo(arr):
 def limpiar_arbol(): 
     arbol = env.vars['arbol']
     for _,v in arbol.vertices.items(): 
-        if(v.circ != None): 
-            v.circ.set(visible = False)
+        if(v.arreglo != None): 
             limpiar_arreglo(v.arreglo)
-        v.circ = None 
-        for u in v.hijos: 
-            if((v,u) in arbol.aristas): 
-                if(arbol.aristas[(v,u)].linea != None): 
-                    arbol.aristas[(v,u)].linea.set(visible = False)
-                arbol.aristas[(v,u)].linea = None 
+    for (p,h),a in arbol.aristas.items(): 
+        a.linea.set(visible = False)
+    arbol.aristas = dict() 
 def dibujar_arreglo(arreglo,x,y,etiq_b): 
     ax = env.vars['ax']
     arr = Arreglo(len(arreglo),arreglo)
@@ -125,6 +121,14 @@ def dibujar_arreglo(arreglo,x,y,etiq_b):
         arr.elms[i].anot = ax.text(x+1.5,y+1.5,etiq,ha = 'center',va = 'center',fontsize = 9) 
         x = x + 3 
     return arr
+def puntos_arista(p,h): 
+    xp,yp = p.arreglo.elms[0].rect.get_xy() 
+    xp = xp + (3*(len(p.arreglo.elms)))/2
+    yp = yp - 1 
+    xh,yh = h.arreglo.elms[0].rect.get_xy()
+    xh = xh + (3*(len(h.arreglo.elms)))/2 
+    yh = yh + 4
+    return xp,yp,xh,yh
 def dibujar_arbol():  
     limpiar_arbol() 
     rad = env.vars['rad']
@@ -136,15 +140,11 @@ def dibujar_arbol():
         v.circ = None 
     for h,p in prof_h.items():
         cola.append((h,x,p))
-        x = x + (16*3)/arbol.niveles + 1
+        x = x + (len(h.arr)*3)*2
     hijos_proc = dict()
     while(cola): 
         n,x,y = cola[0]
         cola.pop(0)
-        c = Circle((x,y),radius = 6,facecolor = 'white',edgecolor = 'black')
-        n.anot =  env.vars['ax'].text(x, y,n.valor,fontsize = 9,ha='center', va='center') 
-        n.circ = c  
-        env.vars['ax'].add_patch(c)
         n.arreglo = dibujar_arreglo(n.arr,x - (len(n.arr)*3)/2,y,True)
         p = n.padre
         if(p != None): 
@@ -153,15 +153,14 @@ def dibujar_arbol():
             hijos_proc[p] = hijos_proc[p] + 1
             if(hijos_proc[p] == len(p.hijos)): 
                 cola.append((p,entre_hijos(p),y + 16)) 
-    for i,v in arbol.vertices.items(): 
-        for h in v.hijos:  
-            xi,yi = v.circ.get_center()
-            xj,yj = h.circ.get_center()
-            linea = PathPatch(Path([inter_points(env.vars['rad'],xi,yi,xj,yj),inter_points(env.vars['rad'],xj,yj,xi,yi)]), facecolor='none', edgecolor='black')
+    #dibujar aristas
+    for i,p in arbol.vertices.items():
+        for h in p.hijos:  
+            xp,yp,xh,yh = puntos_arista(p,h)  
+            linea = PathPatch(Path([(xp,yp),(xh,yh)]), facecolor='none', edgecolor='black')
             env.vars['ax'].add_patch(linea)
-            if((v,h) not in arbol.aristas): 
-                arbol.aristas[(v,h)] = Arista() 
-            arbol.aristas[(v,h)].linea = linea
+            arbol.aristas[(p,h)] = Arista() 
+            arbol.aristas[(p,h)].linea = linea 
     env.vars['ax'].relim()
     env.vars['ax'].autoscale_view()
 #frecuencias es un diccionario de letra a un numero
@@ -178,11 +177,9 @@ class Ejecucion:
         self.cola = [arbol.raiz] 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
-
-    def siguiente_paso(self):
-        print('ejecuta el siguiente paso ahora')
-        cola_n = []
+    def arriba_abajo(self): 
         arbol = env.vars['arbol']
+        cola_n = []
         for n in self.cola: 
             lc = [n.arr[i] for i in range(0,len(n.arr)//2)]  
             rc = [n.arr[i] for i in range(len(n.arr)//2,len(n.arr))]
@@ -201,6 +198,16 @@ class Ejecucion:
         self.cola = cola_n
         arbol.niveles = arbol.niveles + 1 
         dibujar_arbol()
+    def abajo_arriba(self): 
+        print("hacia arriba")
+
+    def siguiente_paso(self):
+        arbol = env.vars['arbol']
+        if( len(arbol.raiz.arreglo.elms) < 2 ** arbol.niveles ):
+            self.abajo_arriba()
+        else: 
+            self.arriba_abajo()
+       
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
