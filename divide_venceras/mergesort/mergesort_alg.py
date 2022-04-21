@@ -44,6 +44,7 @@ class Arbol:
     n = 0 
     n_nodos = 0
     niveles = 1  
+    niveles_l = []
     def __init__(self):
         self.raiz = Vertice()
         #es una lista de vertices par 
@@ -51,6 +52,7 @@ class Arbol:
         self.vertices[0] = self.raiz 
         self.n_nodos = 1  
         self.aristas  = dict()
+        self.niveles_l.append([self.raiz])
 
 class Vertice: 
     circ = None 
@@ -62,6 +64,9 @@ class Vertice:
     arreglo = None 
     #arr : list(int)
     arr = None
+    #es para la anotación del índice 
+    ind_anot = None 
+    ind = 0 
     def __init__(self): 
         self.hijos = []
 class Arreglo: 
@@ -124,7 +129,7 @@ def dibujar_arreglo(arreglo,x,y,etiq_b):
 def puntos_arista(p,h): 
     xp,yp = p.arreglo.elms[0].rect.get_xy() 
     xp = xp + (3*(len(p.arreglo.elms)))/2
-    yp = yp - 1 
+    yp = yp - 3
     xh,yh = h.arreglo.elms[0].rect.get_xy()
     xh = xh + (3*(len(h.arreglo.elms)))/2 
     yh = yh + 4
@@ -157,7 +162,7 @@ def dibujar_arbol():
     for i,p in arbol.vertices.items():
         for h in p.hijos:  
             xp,yp,xh,yh = puntos_arista(p,h)  
-            linea = PathPatch(Path([(xp,yp),(xh,yh)]), facecolor='none', edgecolor='black')
+            linea = PathPatch(Path([(xp,yp),(xh,yh)]), facecolor='none', edgecolor='black',linestyle = '--')
             env.vars['ax'].add_patch(linea)
             arbol.aristas[(p,h)] = Arista() 
             arbol.aristas[(p,h)].linea = linea 
@@ -170,6 +175,7 @@ class Env:
 
 class Ejecucion:  
     cola = []
+    nivel = 0 
     def crear_arbol_inicial(self):
         arr =  [random.randint(5,50) for i in range(0,16)]
         arbol = env.vars['arbol']
@@ -177,6 +183,43 @@ class Ejecucion:
         self.cola = [arbol.raiz] 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.axis("off")
+
+    def inicializar_ind_nivel(self,nivel): 
+        #limpiar el nivel anterior 
+        arbol = env.vars['arbol']
+        if(nivel < len(arbol.niveles_l)-1): 
+            for n in arbol.niveles_l[nivel+1]: 
+                if(n.ind_anot != None): 
+                    n.ind_anot.set(visible = False)
+        for i in range(0,len(arbol.niveles_l[nivel]),2): 
+            n1 = arbol.niveles_l[nivel][i]
+            n2 = arbol.niveles_l[nivel][i+1]
+            p = n1.padre 
+            x1,y1 = n1.arreglo.elms[0].rect.get_xy(); 
+            x2,y2 = n2.arreglo.elms[0].rect.get_xy(); 
+            xp,yp = p.arreglo.elms[0].rect.get_xy(); 
+            if(n1.ind_anot == None): 
+                anot_i = env.vars['ax'].text(x1+3/2, y1-3, '$i$',fontsize = 9) 
+                n1.ind_anot = anot_i
+            else: 
+                n1.ind_anot.set(x = x1+3/2)
+                n1.ind_anot.set(text = '$i$')
+            if(n2.ind_anot == None): 
+                anot_j = env.vars['ax'].text(x2+3/2, y2-3, '$j$',fontsize = 9) 
+                n2.ind_anot = anot_j
+            else: 
+                n2.ind_anot.set(x = x2+3/2)
+                n2.ind_anot.set(text = '$j$')
+            if(p.ind_anot == None): 
+                anot_k = env.vars['ax'].text(xp+3/2, yp-3, '$k$',fontsize = 9) 
+                p.ind_anot = anot_k
+            else: 
+                p.ind_anot.set(x = xp+3/2)
+                p.ind_anot.set(text = '$k$')
+            n1.ind = 0 
+            n2.ind = 0 
+            p.ind = 0 
     def arriba_abajo(self): 
         arbol = env.vars['arbol']
         cola_n = []
@@ -197,16 +240,67 @@ class Ejecucion:
             cola_n.append(v2)
         self.cola = cola_n
         arbol.niveles = arbol.niveles + 1 
+        arbol.niveles_l.append(cola_n.copy())
         dibujar_arbol()
     def abajo_arriba(self): 
-        print("hacia arriba")
+        arbol = env.vars['arbol']
+        if(self.nivel == 0): 
+            return 
+        #a partir de aquí no está en el nivel 1 
+        prim_niv_ant = arbol.niveles_l[self.nivel-1][0]
+        if( prim_niv_ant.ind == len(prim_niv_ant.arreglo.elms)): 
+            self.nivel = self.nivel - 1 
+            #si ahora el nivel es 0 ya no inicializar nada 
+            if(self.nivel == 0): 
+                #limpiar los indices que quedan en el primer y segundo nivel 
+                for n in arbol.niveles_l[0]: 
+                    n.ind_anot.set(visible = False)
+                for n in arbol.niveles_l[1]: 
+                    n.ind_anot.set(visible = False)
+                return 
+            self.inicializar_ind_nivel(self.nivel)
+        else:   
+            for i in range(0,len(arbol.niveles_l[self.nivel]),2): 
+                n1 = arbol.niveles_l[self.nivel][i] 
+                n2 = arbol.niveles_l[self.nivel][i+1]
+                p = n1.padre
+                p.ind_anot.set(x = p.ind_anot.get_position()[0] + 3)
+                if(n1.ind == len(n1.arr)): 
+                    p.arr[p.ind] = n2.arr[n2.ind]
+                    p.arreglo.elms[p.ind].anot.set(text = p.arr[p.ind])
+                    n2.ind = n2.ind + 1
+                    n2.ind_anot.set(x = n2.ind_anot.get_position()[0] + 3)
+                    p.ind = p.ind + 1
+                    continue 
+                if(n2.ind == len(n2.arr)): 
+                    p.arr[p.ind] = n1.arr[n1.ind]
+                    p.arreglo.elms[p.ind].anot.set(text = p.arr[p.ind])
+                    n1.ind = n1.ind + 1
+                    n1.ind_anot.set(x = n1.ind_anot.get_position()[0] + 3)
+                    p.ind = p.ind + 1 
+                    continue 
+                if(n1.arr[n1.ind] <= n2.arr[n2.ind]): 
+                    p.arr[p.ind] = n1.arr[n1.ind]
+                    p.arreglo.elms[p.ind].anot.set(text = p.arr[p.ind])
+                    n1.ind = n1.ind + 1
+                    n1.ind_anot.set(x = n1.ind_anot.get_position()[0] + 3)
+                    p.ind = p.ind + 1 
+                else: 
+                    p.arr[p.ind] = n2.arr[n2.ind]
+                    p.arreglo.elms[p.ind].anot.set(text = p.arr[p.ind])
+                    n2.ind = n2.ind + 1
+                    n2.ind_anot.set(x = n2.ind_anot.get_position()[0] + 3)
+                    p.ind = p.ind + 1
 
     def siguiente_paso(self):
         arbol = env.vars['arbol']
-        if( len(arbol.raiz.arreglo.elms) < 2 ** arbol.niveles ):
+        if( len(arbol.raiz.arreglo.elms) < 2 ** arbol.niveles ): 
             self.abajo_arriba()
         else: 
             self.arriba_abajo()
+            if(len(arbol.raiz.arreglo.elms) ==  2 ** (arbol.niveles - 1) ): 
+                self.inicializar_ind_nivel(len(arbol.niveles_l)-1)
+                self.nivel = arbol.niveles - 1
        
     @out1.capture()
     def teclas_handler(self,event): 
