@@ -78,7 +78,7 @@ class Ejecucion:
         j = 0
         for i in self.intervalos.elms: 
             r = Rectangle(i.p1,width = i.p2[0] - i.p1[0],height = 1)
-            anot = env.vars['ax'].annotate("$i_{}$".format(j), (i.p2[0]+0.5,i.p2[1]-0.5) ,color='black', weight='bold', fontsize=15, ha='center', va='center')
+            anot = env.vars['ax'].annotate("$i_{{{}}}$".format(j), (i.p2[0]+1,i.p2[1]-0.5) ,color='black', weight='bold', fontsize=12, ha='center', va='center')
             env.vars['ax'].add_patch(r)
             i.anot = anot
             i.rect = r 
