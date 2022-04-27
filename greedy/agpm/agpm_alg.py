@@ -123,7 +123,7 @@ class Union_find:
         while(self.parent[i] != i): 
             i = self.parent[i]
         return i
-def crear_aleatoria():  
+def crear_aleatoria(g_k):  
     n = 6
     mat = [[-1 for i in range(0,n)] for j in range(0,n)]
     verts = [] 
@@ -136,12 +136,12 @@ def crear_aleatoria():
             if(random.randint(0,1) == 1): 
                 mat[i][j] = k
                 verts.append((k,i,j)) 
-                agregar_vertice(k,x,y)
+                cr = Circulo() 
+                cr.pos = [x,y] 
+                env.vars[g_k].pos_nodos[k] = cr
                 k = k + 1 
             x = x + 5*env.vars['rad']
         y = y - 5*env.vars['rad']
-    env.vars['ax'].relim()
-    env.vars['ax'].autoscale_view()
     ars = []
     for (v,x,y) in verts:  
         for u in vecinos(mat,x,y,n): 
@@ -157,49 +157,80 @@ def crear_aleatoria():
                 p = random.randint(1,50)
                 ars_p.append((v,u,p))
     for (u,v,p) in ars_p: 
-        agregar_arista(v,u,p) 
-def agregar_vertice(v,x,y): 
-    c = Circle((x,y),radius = env.vars['rad'],facecolor = 'white',edgecolor = 'black')
-    cr = Circulo() 
-    anot = env.vars['ax'].annotate("{}".format(v), (x,y),color='black', weight='bold', fontsize=10, ha='center', va='center') 
-    env.vars['ax'].add_patch(c)
-    cr.pos = [x,y] 
-    cr.img = c 
-    cr.anot = anot 
-    env.vars['g'].pos_nodos[v] = cr
-def agregar_arista(u,v,p):
-        #si ya está, no la agregues 
-        if( not ((v in env.vars['g'].ady and u in env.vars['g'].ady[v]) or (u in env.vars['g'].ady and v in env.vars['g'].ady[u]))): 
-            xu,yu = env.vars['g'].pos_nodos[u].img.get_center() 
-            xv,yv = env.vars['g'].pos_nodos[v].img.get_center() 
-            xu,yu = inter_points(env.vars['rad'],xu,yu,xv,yv)
-            xv,yv = inter_points(env.vars['rad'],xv,yv,xu,yu)
-            linea = PathPatch(Path([(xu,yu),(xv,yv)]), facecolor='none', edgecolor='black')
-            env.vars['ax'].add_patch(linea)
-            xm,ym = punto_medio(xu,yu,xv,yv,0.5,0.2)
-            anot = env.vars['ax'].annotate("{}".format(p), (xm,ym),color='black', weight='bold', fontsize=7, ha='center', va='center') 
-            #agregar a la grafica 
-            n = Nodo()
-            if u not in env.vars['g'].ady: 
-                env.vars['g'].ady[u] = dict()
-            if v not in env.vars['g'].ady[u]: 
-                env.vars['g'].ady[u][v] = n
+        agregar_arista(v,u,p,g_k) 
 
-            if v not in env.vars['g'].ady: 
-                env.vars['g'].ady[v] = dict()
-            if u not in env.vars['g'].ady[v]: 
-                env.vars['g'].ady[v][u] = n
+def dibujar_vertices(g_k,ax_k):
+    g = env.vars[g_k]
+    for v in g.pos_nodos.keys(): 
+        x,y = g.pos_nodos[v].pos
+        c = Circle((x,y),radius = env.vars['rad'],facecolor = 'white',edgecolor = 'black')
+        anot = env.vars[ax_k].annotate("{}".format(v), (x,y),color='black', weight='bold', fontsize=10, ha='center', va='center') 
+        env.vars[ax_k].add_patch(c)
+        g.pos_nodos[v].img = c 
+        g.pos_nodos[v].anot = anot 
+    env.vars[ax_k].relim()
+    env.vars[ax_k].autoscale_view()
+
+def dibujar_aristas(g_k,ax_k): 
+    g = env.vars[g_k]
+    for u,v_u in g.ady.items(): 
+        for v,n in v_u.items(): 
+            if(n.linea == None and n.anot == None ): 
+                xu,yu = env.vars[g_k].pos_nodos[u].img.get_center() 
+                xv,yv = env.vars[g_k].pos_nodos[v].img.get_center() 
+                xu,yu = inter_points(env.vars['rad'],xu,yu,xv,yv)
+                xv,yv = inter_points(env.vars['rad'],xv,yv,xu,yu)
+                linea = PathPatch(Path([(xu,yu),(xv,yv)]), facecolor='none', edgecolor='black')
+                env.vars[ax_k].add_patch(linea)
+                xm,ym = punto_medio(xu,yu,xv,yv,0.5,0.2)
+                anot = env.vars[ax_k].annotate("{}".format(n.peso), (xm,ym),color='black', weight='bold', fontsize=7, ha='center', va='center') 
+                n.linea = linea 
+                n.anot = anot 
+def dibujar_grafica(g_k,ax_k):
+    g = env.vars[g_k] 
+    ax = env.vars[ax_k]
+    dibujar_vertices(g_k,ax_k) 
+    dibujar_aristas(g_k,ax_k)
+
+
+def agregar_arista(u,v,p,g_k):
+        #si ya está, no la agregues 
+        if( not ((v in env.vars[g_k].ady and u in env.vars[g_k].ady[v]) or (u in env.vars[g_k].ady and v in env.vars[g_k].ady[u]))): 
+           #agregar a la grafica 
+            n = Nodo()
+            if u not in env.vars[g_k].ady: 
+                env.vars[g_k].ady[u] = dict()
+            if v not in env.vars[g_k].ady[u]: 
+                env.vars[g_k].ady[u][v] = n
+
+            if v not in env.vars[g_k].ady: 
+                env.vars[g_k].ady[v] = dict()
+            if u not in env.vars[g_k].ady[v]: 
+                env.vars[g_k].ady[v][u] = n
             #de un lado 
-            env.vars['g'].ady[u][v].arista = (u,v)
-            env.vars['g'].ady[u][v].peso = p 
-            env.vars['g'].ady[u][v].linea = linea 
-            env.vars['g'].ady[u][v].anot = anot
+            env.vars[g_k].ady[u][v].arista = (u,v)
+            env.vars[g_k].ady[u][v].peso = p 
             #para el otro 
-            env.vars['g'].ady[v][u].arista = (u,v)
-            env.vars['g'].ady[v][u].peso = p
-            env.vars['g'].ady[v][u].linea = linea 
-            env.vars['g'].ady[v][u].anot = anot
-            #agregar el widget 
+            env.vars[g_k].ady[v][u].arista = (u,v)
+            env.vars[g_k].ady[v][u].peso = p
+            #agregar el widget
+def clonar_grafica(g):
+    gc = Grafica() 
+    for v,c in g.pos_nodos.items(): 
+        gc.pos_nodos[v] = Circulo() 
+        gc.pos_nodos[v].valor = c.valor
+        gc.pos_nodos[v].pos = c.pos[0],c.pos[1] 
+    for u,vec_u in g.ady.items(): 
+        for v,n in vec_u.items():
+            if u not in gc.ady: 
+                gc.ady[u] = dict()
+            if v not in gc.ady: 
+                gc.ady[v] = dict() 
+            if(v not in gc.ady[u]): 
+                gc.ady[u][v] = Nodo()  
+                gc.ady[u][v].peso = g.ady[u][v].peso  
+                gc.ady[v][u] = gc.ady[u][v]
+    return gc
 class Ejecucion:  
     ind_ar = 0 
     n = None
@@ -207,10 +238,10 @@ class Ejecucion:
     union_f = None 
     ar_ord = None 
     def config_imagen(self): 
-        plt.gca().set_aspect('equal', adjustable='box')
+        env.vars[self.ax_k].set_aspect('equal', adjustable='box')
 
     def siguiente_paso(self):
-        g = env.vars['g']
+        g = env.vars[self.g_k]
         if(self.ind_ar == len(self.ar_ord)):
             return
         (u,v,p) = self.ar_ord[self.ind_ar]
@@ -241,35 +272,39 @@ class Ejecucion:
         elif(event.key == '+'): 
             self.zoom_mas() 
     def zoom_mas(self): 
-        x,y = env.vars['fig'].get_size_inches()
-        env.vars['fig'].set_size_inches(x+1,y+1)
+        x,y = env.vars[self.fig_k].get_size_inches()
+        env.vars[self.fig_k].set_size_inches(x+1,y+1)
     def zoom_menos(self): 
-        x,y = env.vars['fig'].get_size_inches()
-        env.vars['fig'].set_size_inches(x-1,y-1)
+        x,y = env.vars[self.fig_k].get_size_inches()
+        env.vars[self.fig_k].set_size_inches(x-1,y-1)
     def config_teclas(self): 
-        env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
+        env.vars[self.cid_t_k] = env.vars[self.fig_k].canvas.mpl_connect('key_press_event', self.teclas_handler)
     def colorear_vertices(self): 
-        g = env.vars['g'] 
+        g = env.vars[self.g_k] 
         for i in g.pos_nodos.keys(): 
             g.pos_nodos[i].img.set(facecolor = self.array_col[i])
     def obtener_aristas_ord(self): 
         ars = [] 
         ars_sp = [] 
-        for i in env.vars['g'].ady.keys(): 
-            for j in env.vars['g'].ady[i].keys(): 
+        for i in env.vars[self.g_k].ady.keys(): 
+            for j in env.vars[self.g_k].ady[i].keys(): 
                 if((i,j) not in ars_sp): 
                     ars_sp.append((i,j))
                     ars_sp.append((j,i))
-                    ars.append((i,j,env.vars['g'].ady[i][j].peso))
+                    ars.append((i,j,env.vars[self.g_k].ady[i][j].peso))
         ars.sort(key = lambda x : x[2])
         return ars
-    def __init__(self): 
+    def __init__(self,g_k,ax_k,fig_k,cid_t_k): 
+        self.g_k = g_k 
+        self.ax_k = ax_k 
+        self.fig_k = fig_k 
+        self.cid_t_k = cid_t_k 
         self.array_col = []
-        crear_aleatoria() 
+        dibujar_grafica(self.g_k,ax_k) 
         self.ar_ord = self.obtener_aristas_ord() 
-        self.n = len(env.vars['g'].pos_nodos.keys())
+        self.n = len(env.vars[self.g_k].pos_nodos.keys())
         self.union_f = Union_find(self.n)
-        #self.ar_ord = self.obtener_aristas_ord()
+        self.ar_ord = self.obtener_aristas_ord()
         color_map = plt.get_cmap('tab20c', 1000)
         #para el número de colores 
         frac = 1/self.n
@@ -278,9 +313,16 @@ class Ejecucion:
         self.config_imagen()
         self.config_teclas()
 
+
 env = Env() 
-env.vars['g'] = Grafica()
-env.vars['fig'],env.vars['ax'] = plt.subplots() 
+env.vars['g1'] = Grafica()
+env.vars['g2'] = Grafica()
+env.vars['fig1'],env.vars['ax1'] = plt.subplots() 
+env.vars['fig2'],env.vars['ax2'] = plt.subplots()
 env.vars['rad'] = 1 
-env.vars['cid_t'] = None
-env.vars['e1'] = Ejecucion() 
+env.vars['cid_t1'] = None
+env.vars['cid_t2'] = None
+crear_aleatoria('g1')
+env.vars['g2'] = clonar_grafica(env.vars['g1'])
+env.vars['e1'] = Ejecucion('g1','ax1','fig1','cid_t2') 
+env.vars['e2'] = Ejecucion('g2','ax2','fig2','cid_t2')
