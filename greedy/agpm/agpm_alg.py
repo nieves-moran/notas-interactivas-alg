@@ -148,16 +148,25 @@ def crear_aleatoria(g_k):
             ars.append((v,u))
     arb = crear_arbol(ars,len(verts))
     ars_p = [] 
+    r = random.randint(1,5)
     for (u,v) in arb: 
-        p = random.randint(1,50)
-        ars_p.append((u,v,p))
+        #p = random.randint(1,50)
+        p1 = env.vars[g_k].pos_nodos[u].pos
+        p2 = env.vars[g_k].pos_nodos[v].pos
+        ars_p.append((u,v,dist(p1,p2,r)))
     for v,x,y in verts: 
         for u in vecinos(mat,x,y,n): 
             if(random.randint(0,1) % 2 == 1): 
-                p = random.randint(1,50)
-                ars_p.append((v,u,p))
+                #p = random.randint(1,50)
+                p1 = env.vars[g_k].pos_nodos[u].pos
+                p2 = env.vars[g_k].pos_nodos[v].pos
+                ars_p.append((v,u,dist(p1,p2,r)))
     for (u,v,p) in ars_p: 
         agregar_arista(v,u,p,g_k) 
+def dist(p1,p2,m): 
+    x1,y1 = p1
+    x2,y2 = p2 
+    return math.floor(m*math.sqrt((x1 - x2)** 2 + (y1 - y2)**2))
 
 def dibujar_vertices(g_k,ax_k):
     g = env.vars[g_k]
@@ -312,7 +321,72 @@ class Ejecucion:
         self.colorear_vertices()
         self.config_imagen()
         self.config_teclas()
+class Prim:  
+    ind_ar = 0 
+    n = None
+    cost = dict() 
+    padre= dict() 
+    heap = [] 
+    S = [] 
+    inicial = None
+    def config_imagen(self): 
+        env.vars[self.ax_k].set_aspect('equal', adjustable='box')
 
+    def siguiente_paso(self):
+        if(not self.heap): 
+            return 
+        g = env.vars[self.g_k]
+        self.heap.sort(key = lambda x :  x[1])
+        (u,c) = self.heap[0] 
+        self.heap.pop(0)
+        g.pos_nodos[u].img.set(facecolor = 'gray') 
+        self.S.append(u) 
+        for (v,n) in g.ady[u].items(): 
+            if(v not in self.S): 
+                if(v not in self.cost): 
+                    self.cost[v] = n.peso
+                    self.heap.append((v, n.peso)) 
+                    self.padre[v] = u
+                if(n.peso < self.cost[v]): 
+                    self.heap.remove((v,self.cost[v]))
+                    g.ady[self.padre[v]][v].linea.set(color = 'black')
+                    g.ady[self.padre[v]][v].linea.set(linewidth = 1)
+                    self.heap.append((v, n.peso))
+                    self.cost[v] = n.peso
+                    self.padre[v] = u
+                g.ady[self.padre[v]][v].linea.set(color = 'red')
+                g.ady[self.padre[v]][v].linea.set(linewidth = 3)
+    @out1.capture()
+    def teclas_handler(self,event): 
+        if(event.key == 'n'): 
+            self.siguiente_paso() 
+        if(event.key == '-'):
+            self.zoom_menos()  
+        elif(event.key == '+'): 
+            self.zoom_mas() 
+    def zoom_mas(self): 
+        x,y = env.vars[self.fig_k].get_size_inches()
+        env.vars[self.fig_k].set_size_inches(x+1,y+1)
+    def zoom_menos(self): 
+        x,y = env.vars[self.fig_k].get_size_inches()
+        env.vars[self.fig_k].set_size_inches(x-1,y-1)
+    def config_teclas(self): 
+        env.vars[self.cid_t_k] = env.vars[self.fig_k].canvas.mpl_connect('key_press_event', self.teclas_handler)
+    
+    def escoger_inicial(self): 
+        self.inicial = random.randint(0,self.n-1)
+        self.heap = [(self.inicial,0)]
+    def __init__(self,g_k,ax_k,fig_k,cid_t_k):
+        self.g_k = g_k
+        self.ax_k = ax_k 
+        self.fig_k = fig_k 
+        self.cid_t_k = cid_t_k 
+        dibujar_grafica(self.g_k,ax_k) 
+        self.array_col = []
+        self.n = len(env.vars[self.g_k].pos_nodos.keys())
+        self.escoger_inicial()
+        self.config_imagen()
+        self.config_teclas()
 
 env = Env() 
 env.vars['g1'] = Grafica()
@@ -325,4 +399,4 @@ env.vars['cid_t2'] = None
 crear_aleatoria('g1')
 env.vars['g2'] = clonar_grafica(env.vars['g1'])
 env.vars['e1'] = Ejecucion('g1','ax1','fig1','cid_t2') 
-env.vars['e2'] = Ejecucion('g2','ax2','fig2','cid_t2')
+env.vars['e2'] = Prim('g2','ax2','fig2','cid_t2')
