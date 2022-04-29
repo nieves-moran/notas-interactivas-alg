@@ -240,7 +240,7 @@ def clonar_grafica(g):
                 gc.ady[u][v].peso = g.ady[u][v].peso  
                 gc.ady[v][u] = gc.ady[u][v]
     return gc
-class Ejecucion:  
+class Kruskal:  
     ind_ar = 0 
     n = None
     array_col = None 
@@ -248,7 +248,7 @@ class Ejecucion:
     ar_ord = None 
     def config_imagen(self): 
         env.vars[self.ax_k].set_aspect('equal', adjustable='box')
-
+        plt.axis("off")
     def siguiente_paso(self):
         g = env.vars[self.g_k]
         if(self.ind_ar == len(self.ar_ord)):
@@ -263,9 +263,9 @@ class Ejecucion:
             if(self.union_f.size[pu] < self.union_f.size[pv]): 
                 p = pv
             self.union_f.unite(u,v)
-            for i in range(0,self.n): 
-                if(self.union_f.find(i) == p): 
-                    g.pos_nodos[i].img.set(facecolor = self.array_col[p])
+            g.pos_nodos[u].img.set(facecolor = '#DAF7A6')
+            g.pos_nodos[v].img.set(facecolor = '#DAF7A6')
+            g.ady[u][v].linea.set(color = '#17A589')     
             g.ady[u][v].linea.set(linewidth = 3)
         else: 
             g.ady[u][v].linea.set(linestyle = '--')
@@ -316,9 +316,6 @@ class Ejecucion:
         self.ar_ord = self.obtener_aristas_ord()
         color_map = plt.get_cmap('tab20c', 1000)
         #para el número de colores 
-        frac = 1/self.n
-        self.array_col = [color_map((i+1)*frac) for i in range(0,self.n)]
-        self.colorear_vertices()
         self.config_imagen()
         self.config_teclas()
 class Prim:  
@@ -331,7 +328,7 @@ class Prim:
     inicial = None
     def config_imagen(self): 
         env.vars[self.ax_k].set_aspect('equal', adjustable='box')
-
+        plt.axis("off")
     def siguiente_paso(self):
         if(not self.heap): 
             return 
@@ -339,7 +336,7 @@ class Prim:
         self.heap.sort(key = lambda x :  x[1])
         (u,c) = self.heap[0] 
         self.heap.pop(0)
-        g.pos_nodos[u].img.set(facecolor = 'gray') 
+        g.pos_nodos[u].img.set(facecolor = '#F4D03F') 
         self.S.append(u) 
         for (v,n) in g.ady[u].items(): 
             if(v not in self.S): 
@@ -354,7 +351,7 @@ class Prim:
                     self.heap.append((v, n.peso))
                     self.cost[v] = n.peso
                     self.padre[v] = u
-                g.ady[self.padre[v]][v].linea.set(color = 'red')
+                g.ady[self.padre[v]][v].linea.set(color = '#F5B041')
                 g.ady[self.padre[v]][v].linea.set(linewidth = 3)
     @out1.capture()
     def teclas_handler(self,event): 
@@ -392,11 +389,11 @@ env = Env()
 env.vars['g1'] = Grafica()
 env.vars['g2'] = Grafica()
 env.vars['fig1'],env.vars['ax1'] = plt.subplots() 
-env.vars['fig2'],env.vars['ax2'] = plt.subplots()
 env.vars['rad'] = 1 
 env.vars['cid_t1'] = None
 env.vars['cid_t2'] = None
 crear_aleatoria('g1')
 env.vars['g2'] = clonar_grafica(env.vars['g1'])
-env.vars['e1'] = Ejecucion('g1','ax1','fig1','cid_t2') 
+env.vars['e1'] = Kruskal('g1','ax1','fig1','cid_t2') 
+env.vars['fig2'],env.vars['ax2'] = plt.subplots()
 env.vars['e2'] = Prim('g2','ax2','fig2','cid_t2')
