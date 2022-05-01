@@ -60,6 +60,8 @@ class Ejecucion:
     conj = [] 
     w = 1 
     i = 1 
+    calculados = dict() 
+    circs = [] 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
 
@@ -71,11 +73,16 @@ class Ejecucion:
             i = i + 1
             self.i = i   
             w = 1 
+        if(i >=  len(self.conj)+1): 
+            return 
+        self.calculados[(i,w)] = [] 
         if(w < self.conj[i-1]): 
-            #print(m.celdas[self.conj[i-1]][w].valor)
             m.celdas[i][w].valor = m.celdas[i-1][w].valor
+            self.calculados[(i,w)].append((i-1,w))
         else:  
             m.celdas[i][w].valor = max(m.celdas[i-1][w].valor, self.conj[i-1] + m.celdas[i-1][w - self.conj[i-1]].valor)
+            self.calculados[(i,w)].append((i-1,w))
+            self.calculados[(i,w)].append((i-1,w - self.conj[i-1]))
         m.celdas[i][w].anot.set(text="{}".format(m.celdas[i][w].valor))
         self.w = w + 1      
     @out1.capture()
@@ -96,7 +103,7 @@ class Ejecucion:
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
     def crear_matriz(self): 
         self.crear_conj_arb() 
-        self.W  = random.randint(10,20)
+        self.W  = random.randint(5,20)
         n = len(self.conj) + 1
         m = self.W + 1 
         env.vars['mat'] = Matriz(n,m)
@@ -143,22 +150,32 @@ class Ejecucion:
             r2 = random.randint(2,5) 
             self.conj.append(random.randint(r1,r1 + r2))
         print(self.conj)
+    def poner_circ(self,p): 
+        (u,v) = p
+        x,y = env.vars['mat'].celdas[u][v].rect.get_xy() 
+        x,y = x + 1.5, y + 1.5 
+        p = Circle((x,y),radius = 1.5)
+        return p 
+    @out1.capture() 
     def mouse_click_handler(self,event): 
-        print("click")
         #buscar en las que estan calculadas
+        if(event.xdata == None or event.ydata == None): 
+            return 
         for (i,j),ps in self.calculados.items():
-            for (u,v) in ps: 
-                f = self.poner_flecha((i,j),(u,v))
-                self.flechas.append(f)
-        self.poner_flecha(i,j) 
+            x,y = env.vars['mat'].celdas[i][j].rect.get_xy() 
+            if(x <= event.xdata and event.xdata <= x + 3 and y <= event.ydata and event.ydata <= y + 3 ): 
+                for (u,v) in ps: 
+                    c = self.poner_circ((u,v))
+                    env.vars['ax'].add_patch(c)
+                    self.circs.append(c) 
+    @out1.capture() 
     def mouse_release_handler(self,event):
-        #quitar flecha
-        print("release") 
-        for f in self.flechas: 
-            f.set(visible = False)
-        self.flechas = [] 
-    def config_muouse(): 
-        print("config")
+        for c in self.circs: 
+            c.set(visible = False)
+        self.circs = [] 
+    def config_mouse(self): 
+        env.vars['cid_mc'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.mouse_click_handler)
+        env.vars['cid_mr'] = env.vars['fig'].canvas.mpl_connect('button_release_event', self.mouse_release_handler)
     def poner_ceros(self):
         m = env.vars['mat'] 
         for i in range(0,len(self.conj)+1): 
@@ -174,6 +191,7 @@ class Ejecucion:
         self.dibujar_matriz()
         self.poner_ceros()  
         self.poner_etiquetas()
+        self.config_mouse() 
 
 env = Env() 
 env.vars['mat'] = None
@@ -181,4 +199,6 @@ env.vars['etq'] = None
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
 env.vars['rad'] = 1 
 env.vars['cid_t'] = None
+env.vars['cid_mc'] = None 
+env.vars['cid_mr'] = None 
 env.vars['e1'] = Ejecucion() 
