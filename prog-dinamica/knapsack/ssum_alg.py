@@ -68,23 +68,19 @@ class Ejecucion:
     def siguiente_paso(self):
         m = env.vars['mat']
         i = self.i 
-        w = self.w 
-        if(w == self.W+1): 
-            i = i + 1
-            self.i = i   
-            w = 1 
         if(i >=  len(self.conj)+1): 
             return 
-        self.calculados[(i,w)] = [] 
-        if(w < self.conj[i-1]): 
-            m.celdas[i][w].valor = m.celdas[i-1][w].valor
-            self.calculados[(i,w)].append((i-1,w))
-        else:  
-            m.celdas[i][w].valor = max(m.celdas[i-1][w].valor, self.conj[i-1] + m.celdas[i-1][w - self.conj[i-1]].valor)
-            self.calculados[(i,w)].append((i-1,w))
-            self.calculados[(i,w)].append((i-1,w - self.conj[i-1]))
-        m.celdas[i][w].anot.set(text="{}".format(m.celdas[i][w].valor))
-        self.w = w + 1      
+        for w in range(1,self.W + 1): 
+            self.calculados[(i,w)] = [] 
+            if(w < self.conj[i-1]): 
+                m.celdas[i][w].valor = m.celdas[i-1][w].valor
+                self.calculados[(i,w)].append((i-1,w))
+            else:  
+                m.celdas[i][w].valor = max(m.celdas[i-1][w].valor, self.conj[i-1] + m.celdas[i-1][w - self.conj[i-1]].valor)
+                self.calculados[(i,w)].append((i-1,w))
+                self.calculados[(i,w)].append((i-1,w - self.conj[i-1]))
+            m.celdas[i][w].anot.set(text="{}".format(m.celdas[i][w].valor))
+        self.i = self.i + 1    
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
