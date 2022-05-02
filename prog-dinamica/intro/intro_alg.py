@@ -27,6 +27,7 @@ class Arreglo:
         valor = None 
         rect = None 
         anot = None 
+        ant = None 
     elms = [] 
     def __init__(self,n): 
         self.elms = [self.Celda() for i in range(0,n)]
@@ -51,8 +52,12 @@ class Ejecucion:
     ind = 1  
     arr_dp = None
     flechas = [] 
+    coloreados = [] 
+    solucion = [] 
+    terminar = False 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.axis("off")
        
     def fun_p(self,i): 
         for j in range(i-2,-1,-1): 
@@ -77,11 +82,49 @@ class Ejecucion:
         env.vars['ax'].add_patch(p2)
         self.flechas = [p1,p2]
 
+    def pintar_intervalos(self,i,p):
+        #limpiar previos 
+        for r in self.coloreados: 
+            r.set(facecolor = 'white')
+        self.coloreados = [] 
+        self.intervalos.elms[i-1].rect.set(facecolor = '#0E6655') 
+        self.coloreados.append(self.intervalos.elms[i-1].rect)
+        for j in range(0,p): 
+            self.intervalos.elms[j].rect.set(facecolor = '#48C9B0')
+            self.coloreados.append(self.intervalos.elms[j].rect)
+    
+    def colorear_solucion(self): 
+        for r in self.coloreados: 
+            r.set(facecolor = 'white')
+        for i in self.solucion: 
+            self.intervalos.elms[i-1].rect.set(facecolor = "#5DADE2")
+    def obtener_solucion(self):
+        i = len(self.arr_dp.elms) - 1  
+        while(i != 0): 
+            if(self.arr_dp.elms[i].ant != - 1): 
+                self.solucion.append(i)
+                i = self.arr_dp.elms[i].ant
+            else: 
+                i = i -1 
+        self.solucion.reverse() 
     def siguiente_paso(self):
+        if(self.terminar):
+            return
+        if(self.ind == len(self.arr_dp.elms)):
+            self.obtener_solucion() 
+            self.colorear_solucion() 
+            self.terminar = True
+            return 
         i = self.ind 
         p = self.fun_p(i)
         self.poner_flechas(i,i-1,p)
-        self.arr_dp.elms[i].valor = max(self.arr_dp.elms[i-1].valor,self.arr_dp.elms[p].valor +self.intervalos.elms[i-1].valor ) 
+        self.pintar_intervalos(i,p) 
+        if(self.arr_dp.elms[p].valor +self.intervalos.elms[i-1].valor >= self.arr_dp.elms[i-1].valor): 
+            self.arr_dp.elms[i].valor = self.arr_dp.elms[p].valor +self.intervalos.elms[i-1].valor
+            self.arr_dp.elms[i].ant = p 
+        else: 
+            self.arr_dp.elms[i].valor = self.arr_dp.elms[i-1].valor
+            self.arr_dp.elms[i].ant = -1
         self.arr_dp.elms[i].anot.set(text = self.arr_dp.elms[i].valor)
         self.ind = self.ind + 1 
 
@@ -132,12 +175,14 @@ class Ejecucion:
     def crear_intervalos_aleatorios(self):
         intervalos = [] 
         #va a hacer de 1 a 15 
-        num_ints = random.randint(5,15) 
+        num_ints = random.randint(5,10) 
+        st = 0 
         for i in range(0,num_ints): 
-            pnt_inicial = random.randint(2,50)
             tam = random.randint(3,20)
             val = random.randint(5,25)
-            intervalos.append([pnt_inicial,pnt_inicial+tam,val])
+            intervalos.append([st,st+tam,val])
+            n = random.randint(3,15)
+            st = st + n 
         return intervalos
     def dibujar_arreglo_dp(self): 
         self.arr_dp = Arreglo(len(self.intervalos.elms)+1)
