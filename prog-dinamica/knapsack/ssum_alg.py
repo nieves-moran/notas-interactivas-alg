@@ -1,6 +1,7 @@
 from cmath import atan
 from glob import glob
 from matplotlib.patches import Circle
+from matplotlib.patches import Ellipse 
 from matplotlib.patches import Rectangle
 from matplotlib.patches import Path
 from matplotlib.patches import PathPatch
@@ -44,6 +45,8 @@ class Celda:
     valor = None 
     rect = None
     anot = None
+    #con el fin de calcular la solución 
+    ant = -1 
 class Etiquetas: 
     reng = None
     cols = None
@@ -62,21 +65,57 @@ class Ejecucion:
     i = 1 
     calculados = dict() 
     circs = [] 
+    sol = [] 
+    solucion = False 
+    et = None 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
-
+        plt.axis("off")
+    def obtener_solucion(self): 
+        i = len(self.conj)
+        m = env.vars['mat'] 
+        w = self.W
+        while(i != 0): 
+            if(m.celdas[i][w].ant != -1): 
+                self.sol.append(i) 
+                w = m.celdas[i][w].ant
+            i = i - 1 
+        print(self.sol )
+    def colorear_solucion(self):
+        for i in self.sol: 
+            r = env.vars['etq'].reng[i].rect
+            x, y = r.get_xy() 
+            w = r.get_width()
+            x = x + w/2
+            h = r.get_height()
+            y = y + h/2  
+            c = Ellipse((x,y),width = w+3,height = h,facecolor = '#EBDEF0',edgecolor = "#7D3C98" )
+            env.vars['ax'].add_patch(c)
+        env.vars['ax'].relim()
+        env.vars['ax'].autoscale_view()
     def siguiente_paso(self):
+        if(self.solucion): 
+            return 
         m = env.vars['mat']
         i = self.i 
         if(i >=  len(self.conj)+1): 
+            self.obtener_solucion() 
+            self.colorear_solucion() 
+            self.solucion = True
             return 
         for w in range(1,self.W + 1): 
             self.calculados[(i,w)] = [] 
             if(w < self.conj[i-1]): 
                 m.celdas[i][w].valor = m.celdas[i-1][w].valor
+                m.celdas[i][w].ant = -1 
                 self.calculados[(i,w)].append((i-1,w))
             else:  
-                m.celdas[i][w].valor = max(m.celdas[i-1][w].valor, self.conj[i-1] + m.celdas[i-1][w - self.conj[i-1]].valor)
+                if(m.celdas[i-1][w].valor <=  self.conj[i-1] + m.celdas[i-1][w - self.conj[i-1]].valor): 
+                    m.celdas[i][w].ant = w - self.conj[i-1]
+                    m.celdas[i][w].valor = self.conj[i-1] + m.celdas[i-1][w - self.conj[i-1]].valor
+                else: 
+                    m.celdas[i][w].ant = -1
+                    m.celdas[i][w].valor =  m.celdas[i-1][w].valor
                 self.calculados[(i,w)].append((i-1,w))
                 self.calculados[(i,w)].append((i-1,w - self.conj[i-1]))
             m.celdas[i][w].anot.set(text="{}".format(m.celdas[i][w].valor))
@@ -98,8 +137,8 @@ class Ejecucion:
     def config_teclas(self): 
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
     def crear_matriz(self): 
+        self.W  = random.randint(5,30)
         self.crear_conj_arb() 
-        self.W  = random.randint(5,20)
         n = len(self.conj) + 1
         m = self.W + 1 
         env.vars['mat'] = Matriz(n,m)
@@ -130,7 +169,7 @@ class Ejecucion:
         for i in range(1,n):
             et.reng[i].rect = Rectangle((x,y),width = w,height = h,facecolor = 'white',edgecolor = 'black',visible = False)
             env.vars['ax'].add_patch(et.reng[i].rect) 
-            et.reng[i].anot = env.vars['ax'].text(x+w/2, y+h/2,"$w_{}={}$".format(i,"" if i - 1 < 0 else self.conj[i-1]),fontsize = 9,ha='center', va='center')  
+            et.reng[i].anot = env.vars['ax'].text(x+w/2, y+h/2,"$w_{{{}}}={}$".format(i,"" if i - 1 < 0 else self.conj[i-1]),fontsize = 9,ha='center', va='center')  
             y = y - 3 
         x,y = 0,3
         for i in range(0,m):
@@ -141,11 +180,9 @@ class Ejecucion:
         env.vars['ax'].relim()
         env.vars['ax'].autoscale_view()
     def crear_conj_arb(self): 
-        for _ in range(0,random.randint(5,10)):
-            r1 = random.randint(4,9)
-            r2 = random.randint(2,5) 
-            self.conj.append(random.randint(r1,r1 + r2))
-        print(self.conj)
+        for _ in range(0,random.randint(5,20)):
+            r = random.randint(1,self.W//2)
+            self.conj.append(r)
     def poner_circ(self,p): 
         (u,v) = p
         x,y = env.vars['mat'].celdas[u][v].rect.get_xy() 
