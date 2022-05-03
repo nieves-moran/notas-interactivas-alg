@@ -16,6 +16,28 @@ import math
 %matplotlib nbagg
 out1 = widgets.Output()
 display(out1)
+def ang_crr(p1,p2): 
+    x1,y1 = p1 
+    x2,y2 = p2 
+    dx,dy = x2 - x1, y2 - y1 
+    if(y2 >= y1): 
+        if(x2 > x1): 
+            #1
+            return math.atan(dy/dx)
+        elif(x2 == x1):
+            return math.pi/2
+        else: 
+            #2
+            return math.pi + math.atan(dy/dx)
+    else: 
+        if(x2 < x1): 
+            #3 
+            return math.pi + math.atan(dy/dx)  
+        elif(x2 == x1):
+            return (3/2)*math.pi 
+        else: 
+            #4 
+            return 2*math.pi + math.atan(dy/dx)
 def inter_points(rad,x1,y1,x2,y2): 
     phi = math.atan2(y2-y1, x2-x1)
     x = x1 + rad * math.cos(phi)
@@ -25,15 +47,14 @@ def inter_points(rad,x1,y1,x2,y2):
 def punto_medio(x1,y1,x2,y2,s,fra): 
     dx = x1 - x2 
     dy = y1 - y2 
-    ang = (math.pi/2 if dy > 0 else (3*math.pi)/2) if dx == 0 else math.atan(dy/dx)
-    ang = ang + 2* math.pi if ang < 0 else ang
+    ang = ang_crr((x1,y1),(x2,y2))
     x = math.sqrt((x1- x2)**2 + (y1 - y2)**2)*fra
     y = s 
     xp = x*math.cos(ang) - y*math.sin(ang)
     yp = x*math.sin(ang) + y*math.cos(ang)
     ##llegué a la conclusión que tienes que trasladarlo a el que tiene la menor x 
-    xp = xp + (x1 if x1 < x2 else x2) 
-    yp = yp + (y1 if x1 < x2 else y2 )
+    xp = xp + x1
+    yp = yp + y1
     return (xp,yp)
 def vecinos(mat,x,y,n):
     vec = [] 
@@ -92,6 +113,25 @@ class Nodo:
     anot = None 
     peso = None 
     valor = None
+class Matriz: 
+    celdas = None
+    def __init__(self,n,m): 
+        self.celdas = [[0 for j in range(0,m)] for i in range(0,n)] 
+class Celda: 
+    valor = None 
+    rect = None
+    anot = None
+    #con el fin de calcular la solución 
+    ant = -1 
+class Etiquetas: 
+    reng = None
+    cols = None
+    def __init__(self,n,m): 
+        self.reng = [Etiq() for i in range(0,n)]
+        self.cols = [Etiq() for j in range(0,m)]
+class Etiq: 
+    rect = None
+    anot = None 
 
 class Circulo: 
     img = None 
@@ -141,11 +181,11 @@ def arb_dirigido(arb,inicial):
         cola.pop(0)
         for u in g[v]: 
             if(u not in cola and u not in revisados): 
-                arb_dir.append((v,u)) 
+                arb_dir.append((u,v)) 
                 cola.append(u)
     return arb_dir
 def crear_aleatoria():  
-    n = 6
+    n = 5
     mat = [[-1 for i in range(0,n)] for j in range(0,n)]
     verts = [] 
     x = 0 
@@ -179,8 +219,8 @@ def crear_aleatoria():
         for v in vecinos(mat,x,y,n): 
             if((v,u) in arb or (u,v) in arb): 
                 continue 
-            if(random.randint(0,10) < 9): 
-                p = random.randint(1,50)
+            if(random.randint(0,10) < 5): 
+                p = random.randint(-20,20)
                 if(random.randint(0,1) == 1): 
                     ars_p.append((u,v,p))
                     arb.append((u,v))
@@ -194,7 +234,7 @@ def crear_aleatoria():
 def agregar_vertice(v,x,y): 
     c = Circle((x,y),radius = env.vars['rad'],facecolor = 'white',edgecolor = 'black')
     cr = Circulo() 
-    anot = env.vars['ax'].annotate("{}".format(v), (x,y),color='black', weight='bold', fontsize=10, ha='center', va='center') 
+    anot = env.vars['ax'].text(x,y,"$V_{{{}}}$".format(v), fontsize=9, ha='center', va='center') 
     env.vars['ax'].add_patch(c)
     cr.pos = [x,y] 
     cr.img = c 
@@ -210,6 +250,10 @@ def agregar_arista(u,v,p):
             linea = FancyArrowPatch((xu,yu),(xv,yv),connectionstyle = "arc3, rad = 0",color = 'black') 
             linea.set_arrowstyle("fancy", head_length=5,head_width = 5)
             env.vars['ax'].add_patch(linea)
+            xa,ya = punto_medio(xv,yv,xu,yu,0,0.7)
+            c = Circle((xa,ya),radius = 0.5,color = 'white')
+            env.vars['ax'].add_patch(c)
+            env.vars['ax'].text(xa,ya,p,fontsize = 8,va = 'center',ha = 'center')
             #agregar a la grafica 
             n = Nodo()
             if u not in env.vars['g'].ady: 
@@ -223,7 +267,7 @@ def agregar_arista(u,v,p):
             env.vars['g'].ady[u][v].peso = p 
             env.vars['g'].ady[u][v].linea = linea 
     
-class Ejecucion:  
+class Ejecucion:   
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
     def siguiente_paso(self):
@@ -244,14 +288,62 @@ class Ejecucion:
         env.vars['fig'].set_size_inches(x-1,y-1)
     def config_teclas(self): 
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
+    def crear_matriz(self):
+        g = env.vars['g'] 
+        n = len((g.pos_nodos))
+        m = len((g.pos_nodos))
+        env.vars['mat'] = Matriz(n,m)
+    def poner_etiquetas(self):
+        mat = env.vars['mat'] 
+        n = len(mat.celdas)
+        m = len(mat.celdas[0])
+        et = Etiquetas(n,m)
+        env.vars['etq'] = et
+        x,y = env.vars['g'].max_x + 1,0
+        w,h = 2,2
+        for i in range(0,n):
+            et.reng[i].rect = Rectangle((x,y),width = w,height = h,facecolor = 'white',edgecolor = 'black',visible = False)
+            env.vars['ax'].add_patch(et.reng[i].rect) 
+            et.reng[i].anot = env.vars['ax'].text(x+w/2, y+h/2,"$V_{{{}}}$".format(i),fontsize = 9,ha='center', va='center')  
+            y = y - 2 
+        x,y = env.vars['g'].max_x + 3,2
+        for i in range(0,m):
+            et.cols[i].rect = Rectangle((x,y),width = w,height = h,facecolor = 'white',edgecolor = 'black',visible = False)
+            env.vars['ax'].add_patch(et.cols[i].rect)  
+            et.cols[i].anot = env.vars['ax'].text(x+w/2, y+h/2,"{}".format(i),fontsize = 9,ha='center', va='center')  
+            x = x + 2 
+        env.vars['ax'].relim()
+        env.vars['ax'].autoscale_view()
+    def dibujar_matriz(self):
+            mat = env.vars['mat']
+            x,y = env.vars['ax'].get_xlim()[1] + 3 ,0  
+            for i in range(0,len(mat.celdas)):
+                x = env.vars['ax'].get_xlim()[1] + 3 
+                for j in range(0,len(mat.celdas[0])):
+                    cel = Celda()
+                    w,h = 2,2
+                    cel.rect = Rectangle((x,y),width = w,height = h,facecolor = 'white',edgecolor = 'black')
+                    env.vars['ax'].add_patch(cel.rect) 
+                    cel.anot =  env.vars['ax'].text(x+w/2, y+h/2,"".format(i,j),fontsize = 9,ha='center', va='center') 
+                    mat.celdas[i][j] = cel
+                    x = x + 2
+                y = y - 2
+            env.vars['ax'].relim()
+            env.vars['ax'].autoscale_view()
+
+
     def __init__(self): 
         crear_aleatoria() 
         self.n = len(env.vars['g'].pos_nodos.keys())
         self.config_imagen()
         self.config_teclas()
+        self.crear_matriz() 
+        self.dibujar_matriz() 
+        self.poner_etiquetas() 
 
 env = Env() 
 env.vars['g'] = Grafica()
+env.vars['mat'] = None 
 env.vars['fig'],env.vars['ax'] = plt.subplots()
 env.vars['rad'] = 1 
 env.vars['cid_t'] = None
