@@ -103,6 +103,7 @@ class Grafica:
     ady = None
     # pos_nodos : dict(Int,Circulo)
     pos_nodos = None
+    destino = None 
     def __init__(self): 
         self.ady = dict() 
         self.pos_nodos = dict() 
@@ -163,7 +164,7 @@ class Union_find:
             i = self.parent[i]
         return i
 
-def arb_dirigido(arb,inicial):
+def arb_dirigido(arb,destino):
     g =dict() 
     for u,v in arb: 
         g[u] = [] 
@@ -171,8 +172,7 @@ def arb_dirigido(arb,inicial):
     for u,v in arb: 
         g[u].append(v)
         g[v].append(u)
-    print(g)
-    cola = [inicial]
+    cola = [destino]
     arb_dir = [] 
     revisados = []
     while(cola): 
@@ -208,9 +208,10 @@ def crear_aleatoria():
         for u in vecinos(mat,x,y,n): 
             ars.append((v,u))
     arb = crear_arbol(ars,len(verts))
-    inicial = random.randint(0,len(verts)-1)
-    arb = arb_dirigido(arb,inicial)
-    print("el inicial es {}".format(inicial))
+    destino = random.randint(0,len(verts)-1)
+    env.vars['g'].destino = destino 
+    arb = arb_dirigido(arb,destino)
+    print("el destino es {}".format(destino))
     ars_p = [] 
     for (u,v) in arb: 
         p = random.randint(1,50)
@@ -268,10 +269,27 @@ def agregar_arista(u,v,p):
             env.vars['g'].ady[u][v].linea = linea 
     
 class Ejecucion:   
+    ind = 1 
+    g_inv = dict() 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
+    
+
     def siguiente_paso(self):
-        print("siguiente")
+        j = self.ind 
+        mat = env.vars['mat']
+        g = env.vars['g']
+        n = len(mat.celdas)
+        dp = mat.celdas
+        for i in range(0,n): 
+            dp[i][j].valor = dp[i][j-1].valor
+            for w,n in g.ady[i].items():  
+                if((dp[w][j-1].valor + n.peso if dp[w][j-1].valor != float('inf') else float('inf')) <= dp[i][j].valor): 
+                    dp[i][j].valor = dp[w][j-1].valor + n.peso if dp[w][j-1].valor != float('inf') else float('inf')  
+                else:  
+                    dp[i][j].valor = dp[i][j].valor
+            dp[i][j].anot.set(text = "{}".format("$\infty$" if  dp[i][j].valor == float('inf') else dp[i][j].valor))
+        self.ind = j + 1 
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -330,7 +348,18 @@ class Ejecucion:
                 y = y - 2
             env.vars['ax'].relim()
             env.vars['ax'].autoscale_view()
-
+    def inicializar_matriz(self):
+        g = env.vars['g']
+        m = env.vars['mat'] 
+        n = len(m.celdas)
+        destino = g.destino 
+        for i in range(0,n):
+            m.celdas[i][0].valor = float('inf')
+            m.celdas[i][0].anot.set(text = "$\infty$")
+        print(destino)
+        for i in range(0,n):
+            m.celdas[destino][i].valor = 0  
+            m.celdas[destino][i].anot.set(text = "{}".format(0))
 
     def __init__(self): 
         crear_aleatoria() 
@@ -340,6 +369,7 @@ class Ejecucion:
         self.crear_matriz() 
         self.dibujar_matriz() 
         self.poner_etiquetas() 
+        self.inicializar_matriz() 
 
 env = Env() 
 env.vars['g'] = Grafica()
