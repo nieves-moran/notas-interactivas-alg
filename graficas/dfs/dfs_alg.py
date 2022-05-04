@@ -4,6 +4,7 @@ from matplotlib.patches import Circle
 from matplotlib.patches import Rectangle
 from matplotlib.patches import Path
 from matplotlib.patches import PathPatch
+from matplotlib.patches import FancyArrowPatch 
 import matplotlib.pyplot as plt
 from IPython.display import display
 import ipywidgets as widgets
@@ -231,23 +232,37 @@ class Ejecucion:
             y = y + 2*env.vars['rad']
         env.vars['ax'].relim()
         env.vars['ax'].autoscale_view()
+    def poner_flecha(self,u,v,color): 
+            xu,yu = env.vars['g'].pos_nodos[u].img.get_center() 
+            xv,yv = env.vars['g'].pos_nodos[v].img.get_center() 
+            xu,yu = inter_points(env.vars['rad'],xu,yu,xv,yv)
+            xv,yv = inter_points(env.vars['rad'],xv,yv,xu,yu)
+            d = math.sqrt((xu - xv)**2 + (yu - yv)**2)
+            max_d = math.sqrt(2)*25 
+            linea = FancyArrowPatch((xu,yu),(xv,yv),connectionstyle = "arc3, rad = {}".format(1/(d*(20/max_d))),color = color) 
+            linea.set_arrowstyle("fancy", head_length=5,head_width = 5)
+            env.vars['ax'].add_patch(linea)
     def siguiente_paso(self):
+        if(not self.pila):
+            return 
         g = env.vars['g']
-        t,exp = self.pila[-1],self.expandidos[-1]
-        if(exp): 
-            g.pos_nodos[t].img.set(facecolor = 'black')
-            g.pos_nodos[t].anot.set(color = 'white')
-            self.alcanzados.append(t)
-            self.pila.pop()
-            self.expandidos.pop() 
-        else: 
-            self.expandidos[-1] = True 
-            for i in g.ady[t].keys(): 
-                #si no estan en la pila 
-                if i not in self.pila and i not in self.alcanzados: 
-                    self.pila.append(i)
-                    self.expandidos.append(False)
-                    g.pos_nodos[i].img.set(facecolor = 'gray')
+        x = self.pila[-1]
+        hijos = False 
+        for  v,nodo in g.ady[x].items():
+            if(v not in self.expandidos and v not in self.pila):  
+                self.pila.append(v)
+                g.pos_nodos[v].img.set(facecolor = 'gray')
+                self.poner_flecha(x,v,'blue')
+                #g.ady[x][v].linea.set(color = 'red')
+                hijos = True 
+                break  
+        if(not hijos): 
+            self.expandidos.append(x)
+            g.pos_nodos[x].img.set(facecolor = 'black')
+            g.pos_nodos[x].anot.set(color = 'white')
+            self.pila.pop() 
+            if(self.pila): 
+                self.poner_flecha(x,self.pila[-1],'red')
         self.dibujar_pila() 
     @out1.capture()
     def teclas_handler(self,event): 
@@ -270,7 +285,7 @@ class Ejecucion:
         g = env.vars['g']
         g.pos_nodos[self.primero].img.set(facecolor = 'gray')
         self.pila = [self.primero]
-        self.expandidos = [False]
+        self.expandidos = [self.primero]
     def __init__(self): 
         crear_aleatoria() 
         self.n = len(env.vars['g'].pos_nodos.keys())
