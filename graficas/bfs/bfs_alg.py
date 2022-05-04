@@ -4,6 +4,7 @@ from matplotlib.patches import Circle
 from matplotlib.patches import Rectangle
 from matplotlib.patches import Path
 from matplotlib.patches import PathPatch
+from matplotlib.patches import FancyArrowPatch
 import matplotlib.pyplot as plt
 from IPython.display import display
 import ipywidgets as widgets
@@ -229,17 +230,32 @@ class Ejecucion:
         env.vars['ax'].relim()
         env.vars['ax'].autoscale()
 
+    def poner_flecha(self,u,v,color): 
+        xu,yu = env.vars['g'].pos_nodos[u].img.get_center() 
+        xv,yv = env.vars['g'].pos_nodos[v].img.get_center() 
+        xu,yu = inter_points(env.vars['rad'],xu,yu,xv,yv)
+        xv,yv = inter_points(env.vars['rad'],xv,yv,xu,yu)
+        linea = FancyArrowPatch((xu,yu),(xv,yv),connectionstyle = "arc3, rad = 0",color = color) 
+        linea.set_arrowstyle("fancy", head_length=5,head_width = 5)
+        env.vars['ax'].add_patch(linea)
     def siguiente_paso(self):
+        if(not self.cola ): 
+            return 
         g = env.vars['g']
         x = self.cola[0]
-        self.cola.pop(0)
-        g.pos_nodos[x].img.set(facecolor = 'black')
-        g.pos_nodos[x].anot.set(color = 'white')
-        self.alcanzados.append(x)
-        for y in g.ady[x].keys(): 
-            if(y not in self.cola and y not in self.alcanzados): 
-                self.cola.append(y)
-                g.pos_nodos[y].img.set(facecolor = 'gray')
+        hijos = False
+        for v,n in g.ady[x].items() : 
+            if(v not in self.cola and v not in self.alcanzados):
+                hijos = True
+                g.pos_nodos[v].img.set(facecolor = 'gray')  
+                self.poner_flecha(x,v,'red') 
+                self.cola.append(v)
+                break  
+        if(not hijos): 
+            self.cola.pop(0)
+            self.alcanzados.append(x)
+            g.pos_nodos[x].img.set(facecolor = 'black')
+            g.pos_nodos[x].anot.set(color = 'white')
         self.dibujar_cola() 
     @out1.capture()
     def teclas_handler(self,event): 
