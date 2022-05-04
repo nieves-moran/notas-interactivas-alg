@@ -271,7 +271,8 @@ def agregar_arista(u,v,p):
     
 class Ejecucion:   
     ind = 1 
-    g_inv = dict() 
+    g_inv = dict()
+    camino_col = []  
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
     def camino(self,v,j): 
@@ -288,29 +289,14 @@ class Ejecucion:
                     v = mat.celdas[v][j].ant 
                     j = j - 1 
         return sol 
-    def caminos(self,j):
-        mat = env.vars['mat'] 
-        n = len(mat.celdas)
-        cs = [] 
-        for i in range(0,n): 
-            c = self.camino(i,j)
-            if(len(c) >= 2): 
-                cs.append(c)
-        return cs 
-    def iluminar_caminos(self,j):
-        cs = self.caminos(j)
-        g = env.vars['g']
-        for u,vs in g.ady.items(): 
-            for v,n in vs.items(): 
-                n.linea.set(color = 'black') 
-        for c in cs: 
-            for i in range(0,len(c)-1): 
-                g.ady[c[i]][c[i+1]].linea.set(color = 'blue')
+ 
     def siguiente_paso(self):
         j = self.ind 
         mat = env.vars['mat']
         g = env.vars['g']
         n = len(mat.celdas)
+        if(j == n):
+            return 
         dp = mat.celdas
         for i in range(0,n): 
             dp[i][j].valor = dp[i][j-1].valor
@@ -322,7 +308,6 @@ class Ejecucion:
                 else:  
                     dp[i][j].valor = dp[i][j].valor
             dp[i][j].anot.set(text = "{}".format("$\infty$" if  dp[i][j].valor == float('inf') else dp[i][j].valor))
-        self.iluminar_caminos(j)
         self.ind = j + 1 
     @out1.capture()
     def teclas_handler(self,event): 
@@ -394,7 +379,32 @@ class Ejecucion:
         for i in range(0,n):
             m.celdas[destino][i].valor = 0  
             m.celdas[destino][i].anot.set(text = "{}".format(0))
-
+    @out1.capture()
+    def handler_mouse_press(self,event):
+        if(event.xdata == None or event.ydata == None): 
+            return 
+        g = env.vars['g']
+        for i,c in g.pos_nodos.items(): 
+            x,y = c.img.get_center()
+            if(math.sqrt( (x- event.xdata)**2 + (y -event.ydata )**2) < env.vars['rad']): 
+                self.camino_col = self.camino(i,self.ind-1)
+                if(len(self.camino_col) >= 2 ): 
+                    for i in range(0,len(self.camino_col)-1): 
+                        g.ady[self.camino_col[i]][self.camino_col[i+1]].linea.set(color = 'red')
+                else: 
+                    self.camino_col = []  
+                return 
+    def limpiar_camino(self): 
+        g = env.vars['g']
+        for i in range(0,len(self.camino_col)-1): 
+                        g.ady[self.camino_col[i]][self.camino_col[i+1]].linea.set(color = 'black')
+        self.camino_col = []
+    @out1.capture() 
+    def handler_mouse_release(self,event):
+        self.limpiar_camino()
+    def config_mouse(self): 
+        env.vars['cid_mp'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.handler_mouse_press)
+        env.vars['cid_mr'] = env.vars['fig'].canvas.mpl_connect('button_release_event', self.handler_mouse_release)
     def __init__(self): 
         crear_aleatoria() 
         self.n = len(env.vars['g'].pos_nodos.keys())
@@ -404,6 +414,7 @@ class Ejecucion:
         self.dibujar_matriz() 
         self.poner_etiquetas() 
         self.inicializar_matriz() 
+        self.config_mouse() 
 
 env = Env() 
 env.vars['g'] = Grafica()
@@ -411,4 +422,6 @@ env.vars['mat'] = None
 env.vars['fig'],env.vars['ax'] = plt.subplots()
 env.vars['rad'] = 1 
 env.vars['cid_t'] = None
+env.vars['cid_mp'] = None
+env.vars['cid_mr'] = None 
 env.vars['e1'] = Ejecucion() 
