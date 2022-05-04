@@ -122,6 +122,7 @@ class Celda:
     valor = None 
     rect = None
     anot = None
+    ant = -1 
     #con el fin de calcular la solución 
     ant = -1 
 class Etiquetas: 
@@ -273,8 +274,38 @@ class Ejecucion:
     g_inv = dict() 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
-    
-
+    def camino(self,v,j): 
+        sol = [v]
+        mat = env.vars['mat']
+        if(mat.celdas[v][j].valor == float('inf')): 
+            return [] 
+        else: 
+            while(j > 0): 
+                if(mat.celdas[v][j].ant == -1): 
+                    j = j - 1 
+                else: 
+                    sol.append(mat.celdas[v][j].ant)
+                    v = mat.celdas[v][j].ant 
+                    j = j - 1 
+        return sol 
+    def caminos(self,j):
+        mat = env.vars['mat'] 
+        n = len(mat.celdas)
+        cs = [] 
+        for i in range(0,n): 
+            c = self.camino(i,j)
+            if(len(c) >= 2): 
+                cs.append(c)
+        return cs 
+    def iluminar_caminos(self,j):
+        cs = self.caminos(j)
+        g = env.vars['g']
+        for u,vs in g.ady.items(): 
+            for v,n in vs.items(): 
+                n.linea.set(color = 'black') 
+        for c in cs: 
+            for i in range(0,len(c)-1): 
+                g.ady[c[i]][c[i+1]].linea.set(color = 'blue')
     def siguiente_paso(self):
         j = self.ind 
         mat = env.vars['mat']
@@ -283,12 +314,15 @@ class Ejecucion:
         dp = mat.celdas
         for i in range(0,n): 
             dp[i][j].valor = dp[i][j-1].valor
-            for w,n in g.ady[i].items():  
-                if((dp[w][j-1].valor + n.peso if dp[w][j-1].valor != float('inf') else float('inf')) <= dp[i][j].valor): 
-                    dp[i][j].valor = dp[w][j-1].valor + n.peso if dp[w][j-1].valor != float('inf') else float('inf')  
+            for w,nodo in g.ady[i].items():  
+                if((dp[w][j-1].valor + nodo.peso if dp[w][j-1].valor != float('inf') else float('inf')) <= dp[i][j].valor): 
+                    dp[i][j].valor = dp[w][j-1].valor + nodo.peso if dp[w][j-1].valor != float('inf') else float('inf')  
+                    if(dp[i][j].valor != float('inf')): 
+                        dp[i][j].ant = w
                 else:  
                     dp[i][j].valor = dp[i][j].valor
             dp[i][j].anot.set(text = "{}".format("$\infty$" if  dp[i][j].valor == float('inf') else dp[i][j].valor))
+        self.iluminar_caminos(j)
         self.ind = j + 1 
     @out1.capture()
     def teclas_handler(self,event): 
