@@ -1,5 +1,5 @@
 FROM ubuntu:20.04
-COPY src /usr/notas
+COPY src /src
 RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y python3

@@ -8,4 +8,4 @@ Construir la imagen con el siguiente comando:
 Lanzar el contenedor con este comando: 
     docker run -d -p 8888:8888 jupyter_image
 Acceder a la siguiente liga: 
-    http://localhost:8888/notebooks/usr/notas/
+    http://localhost:8888/notebooks/src/indice/indice.ipynb
