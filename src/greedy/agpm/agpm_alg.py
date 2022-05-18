@@ -245,33 +245,48 @@ class Kruskal:
     n = None
     array_col = None 
     union_f = None 
-    ar_ord = None 
+    ar_ord = None
+    ax_anot = None 
+    anot = None
+    peso = 0 
     def config_imagen(self): 
         env.vars[self.ax_k].set_aspect('equal', adjustable='box')
+        plt.subplots_adjust(bottom=0.3)
         plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+    def actualizar_anot(self,a,esc):
+        (u,v,p) = a  
+        if(esc): 
+            self.peso = self.peso + p 
+            text = "-La arista ({},{}) no crea un ciclo. Se agrega al arbol \n".format(u,v)
+            text = text + "-el peso del arbol generador de peso minimo es {}\n".format(self.peso)
+        else: 
+            text = "-La arista ({},{}) crea un ciclo. Se ignora\n".format(u,v) 
+            text = text + "-El peso del arbol permanece como {}".format(self.peso)
+        self.anot.set(text = text)
     def siguiente_paso(self):
         g = env.vars[self.g_k]
         if(self.ind_ar == len(self.ar_ord)):
             return
-        (u,v,p) = self.ar_ord[self.ind_ar]
+        (u,v,peso) = self.ar_ord[self.ind_ar]
+        escogida = False
         if(self.union_f.find(u) !=  self.union_f.find(v)):
             #colorea a todos con el color del grupo mas grande 
+            escogida = True
             pu = self.union_f.find(u)
             pv = self.union_f.find(v)
             #el nuevo padre
-            p = pu
-            if(self.union_f.size[pu] < self.union_f.size[pv]): 
-                p = pv
-            self.union_f.unite(u,v)
+            self.union_f.unite(pu,pv)
             g.pos_nodos[u].img.set(facecolor = '#DAF7A6')
             g.pos_nodos[v].img.set(facecolor = '#DAF7A6')
             g.ady[u][v].linea.set(color = '#17A589')     
             g.ady[u][v].linea.set(linewidth = 3)
         else: 
             g.ady[u][v].linea.set(linestyle = '--')
-            g.ady[u][v].anot.set(visible = False)
-            g.ady[u][v].linea.set(visible = False)
+            g.ady[u][v].linea.set(color = 'lightgray')
         self.ind_ar = self.ind_ar + 1
+        self.actualizar_anot((u,v,peso),escogida) 
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -303,6 +318,8 @@ class Kruskal:
                     ars.append((i,j,env.vars[self.g_k].ady[i][j].peso))
         ars.sort(key = lambda x : x[2])
         return ars
+    def init_anot(self): 
+        self.anot = self.ax_anot.text(0.1,0.7,"",va = 'top',ha = "left")
     def __init__(self,g_k,ax_k,fig_k,cid_t_k): 
         self.g_k = g_k 
         self.ax_k = ax_k 
@@ -318,6 +335,7 @@ class Kruskal:
         #para el número de colores 
         self.config_imagen()
         self.config_teclas()
+        self.init_anot()
 class Prim:  
     ind_ar = 0 
     n = None
@@ -326,9 +344,31 @@ class Prim:
     heap = [] 
     S = [] 
     inicial = None
+    ax_anot = None 
+    anot = None
+    peso = 0 
     def config_imagen(self): 
         env.vars[self.ax_k].set_aspect('equal', adjustable='box')
+        plt.subplots_adjust(bottom=0.3)
         plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+    def actualizar_anot(self,u):
+        self.heap.sort(key = lambda x :  x[1])
+        if(self.heap): 
+            heap = "{"
+            for i in range(0,len(self.heap)-1):
+                (v,u) = self.heap[i] 
+                heap = heap + "{},".format(v)
+            heap += "{}".format(self.heap[len(self.heap)-1][0])
+            heap += "}"
+        else: 
+            heap = "{}"
+        text = "-Se agrega el nodo {} al conjunto $S$ \n".format(u)
+        text = text + "-El heap contiene los nodos: {}\n".format(heap)
+        text = text + "-El peso es ahora {} \n".format(self.peso)
+        self.anot.set(text = text)
+        return  
     def siguiente_paso(self):
         if(not self.heap): 
             return 
@@ -338,6 +378,7 @@ class Prim:
         self.heap.pop(0)
         g.pos_nodos[u].img.set(facecolor = '#F4D03F') 
         self.S.append(u) 
+        self.peso = self.peso + c
         for (v,n) in g.ady[u].items(): 
             if(v not in self.S): 
                 if(v not in self.cost): 
@@ -353,6 +394,7 @@ class Prim:
                     self.padre[v] = u
                 g.ady[self.padre[v]][v].linea.set(color = '#F5B041')
                 g.ady[self.padre[v]][v].linea.set(linewidth = 3)
+        self.actualizar_anot(u) 
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -373,6 +415,8 @@ class Prim:
     def escoger_inicial(self): 
         self.inicial = random.randint(0,self.n-1)
         self.heap = [(self.inicial,0)]
+    def init_anot(self): 
+        self.anot = self.ax_anot.text(0.1,0.7,"",va = 'top',ha = "left")
     def __init__(self,g_k,ax_k,fig_k,cid_t_k):
         self.g_k = g_k
         self.ax_k = ax_k 
@@ -384,6 +428,7 @@ class Prim:
         self.escoger_inicial()
         self.config_imagen()
         self.config_teclas()
+        self.init_anot() 
 
 env = Env() 
 env.vars['g1'] = Grafica()
