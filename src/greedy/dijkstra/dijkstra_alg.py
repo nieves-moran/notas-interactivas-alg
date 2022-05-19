@@ -217,6 +217,9 @@ class Ejecucion:
     sig_min = None
     ax_anot = None
     anot = None 
+    botones = None
+    ind_nods = 0 
+    extremos = []
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
         plt.subplots_adjust(bottom=0.3)
@@ -309,17 +312,126 @@ class Ejecucion:
             x,y = env.vars['g'].pos_nodos[i].img.get_center() 
             env.vars['g'].pos_nodos[i].anot_dist = env.vars['ax'].text(x, y-0.5, '$\infty$',fontsize = 9,ha='center', va='center') 
     def escoger_primer_vertice(self): 
-        self.inicial = random.randint(0,self.n)
+        self.inicial = random.randint(0,self.n-1)
     def init_anot(self): 
-        self.anot = self.ax_anot.text(0.1,0.7,"",va = 'top',ha = "left")
+        text= "Escoge entrada de usuario o generar grafica aleatoria con los botones bajo la imagen"
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
     def ajustar_fig(self): 
         self.zoom_mas()
         self.zoom_mas() 
-    def __init__(self): 
+    def agregar_botones(self): 
+        boton_us = widgets.Button(description="Entrada de usuario")
+        boton_al = widgets.Button(description="Grafica aleatoria")
+        boton_al.on_click(self.handler_al)
+        boton_us.on_click(self.handler_us)
+        self.botones = widgets.HBox([boton_us,boton_al])
+        display(self.botones)
+    @out1.capture() 
+    def poner_nodo(self,event):
+        if(event.inaxes== self.ax_anot): 
+            return 
+        if(event.xdata == None or event.ydata == None): 
+            return 
+        x,y = event.xdata,event.ydata
+        if(x < 1 or y < 1 or y > 24 or x > 24): 
+            return 
+        c = Circle((x , y),radius = 1, facecolor = 'white',edgecolor = 'black')
+        env.vars['ax'].add_patch(c)
+        circ = Circulo() 
+        circ.img = c 
+        circ.pos = [x,y]
+        circ.anot = env.vars['ax'].text(x,y+0.3,self.ind_nods,va='center',ha='center')
+        circ.valor = self.ind_nods
+        env.vars['g'].pos_nodos[self.ind_nods] = circ  
+        self.ind_nods = self.ind_nods + 1 
+    @out1.capture() 
+    def poner_aristas(self,event): 
+        if(event.inaxes== self.ax_anot): 
+            return 
+        if(event.xdata == None or event.ydata == None): 
+            return
+        x,y = event.xdata,event.ydata
+        for i,c in env.vars['g'].pos_nodos.items():
+            xc,yc = c.pos 
+            if((x-xc)**2 + (y-yc)**2 <= 1 ):
+                if( len(self.extremos) == 1):
+                    if(self.extremos[0] != i):
+                        p1 = env.vars['g'].pos_nodos[self.extremos[0]].pos 
+                        p2 = xc,yc 
+                        agregar_arista(self.extremos[0],i,dist(p1,p2,5))
+                        self.extremos = [] 
+                    else: 
+                        break 
+                else: 
+                    self.extremos.append(i)
+                break
+    def conexa(self): 
+        cola = [0] 
+        revisados = []
+        while(cola): 
+            x = cola[0]
+            cola.pop(0) 
+            revisados.append(x)
+            #si no tiene hijos pues solo haz continue 
+            if(x not in env.vars['g'].ady): 
+                continue 
+            for y in env.vars['g'].ady[x].keys():
+                if(y not in revisados and y not in cola):  
+                    cola.append(y)
+        return len(revisados) == len(env.vars['g'].pos_nodos)
+    def listo_aristas_handler(self,event): 
+        if(self.conexa()): 
+            self.n = len(env.vars['g'].pos_nodos.keys())
+            self.escoger_primer_vertice()
+            text = "Presiona la imagen.\n"
+            text += "A partir de aqui, cada vez que presiones n se ejecutara el siguiente paso.\n"
+            text += "El nodo inicial es {}\n.".format(self.inicial)
+            self.anot.set(text = text)
+            env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_c'])
+            self.botones.children = [] 
+            self.alcanzados = [] 
+            self.heap = [(0,self.inicial)] 
+            self.padre = [-1 for i in range(0,self.n) ]
+            self.dist = [float('inf') for i in range(0,self.n)]
+            self.dist[self.inicial] = 0 
+            self.anota_distancias() 
+            env.vars['g'].pos_nodos[self.inicial].anot_dist.set(text = '{}'.format(self.dist[self.inicial]))
+        else: 
+            text = "La grafica tiene que ser conexa." 
+            self.anot.set(text = text)
+    def listo_nodos_handler(self,event): 
+        if(len(env.vars['g'].pos_nodos) < 2):
+            texto = "Debe haber al menos un par de nodos."
+            self.anot.set(text = texto) 
+        else: 
+            texto = "Agrega las aristas presionando el par de nodos que quieres unir.\n"
+            texto += "Una vez listo presiona el boton bajo la imagen"
+            self.anot.set(text = texto)
+            env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_c'])
+            env.vars['cid_c'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.poner_aristas)
+            boton_listo =  widgets.Button(description="Guardar aristas")
+            boton_listo.on_click(self.listo_aristas_handler)
+            self.botones.children = [boton_listo] 
+            self.rect_nodos.set(visible = False)
+    def handler_us(self,event): 
+        texto = "Presiona los lugares dentro el cuadro donde quieres los nodos. \n" 
+        texto += "Una vez listo presiona el boton bajo la imagen"
+        self.anot.set(text = texto)
+        env.vars['cid_c'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.poner_nodo)
+        #hacer de 10x10 el ax
+        self.rect_nodos = Rectangle((0,0),width = 25,height = 25,facecolor = 'white',edgecolor = 'black')
+        env.vars['ax'].add_patch(self.rect_nodos)
+        env.vars['ax'].relim()
+        env.vars['ax'].autoscale_view()
+        boton_listo =  widgets.Button(description="Guardar nodos")
+        boton_listo.on_click(self.listo_nodos_handler)
+        self.botones.children = [boton_listo] 
+    def handler_al(self,event): 
+        texto = "Presiona la imagen. A partir de aqui, cada vez que presiones n se ejecutara \n" 
+        texto += "el siguiente paso."
+        self.anot.set(text = texto)
+        self.botones.children = [] 
         crear_aleatoria() 
-        color_map = plt.get_cmap('tab20', 1000)
-        self.color1 = color_map(0.6)
-        self.color2 = color_map(0.9) 
         self.n = len(env.vars['g'].pos_nodos.keys())
         self.escoger_primer_vertice()
         self.alcanzados = [] 
@@ -327,9 +439,14 @@ class Ejecucion:
         self.padre = [-1 for i in range(0,self.n) ]
         self.dist = [float('inf') for i in range(0,self.n)]
         self.dist[self.inicial] = 0 
-        self.config_imagen()
         self.anota_distancias() 
-        env.vars['g'].pos_nodos[0].anot_dist.set(text = '{}'.format(self.dist[0]))
+        env.vars['g'].pos_nodos[self.inicial].anot_dist.set(text = '{}'.format(self.dist[self.inicial]))
+    def __init__(self): 
+        color_map = plt.get_cmap('tab20', 1000)
+        self.color1 = color_map(0.6)
+        self.color2 = color_map(0.9) 
+        self.agregar_botones()
+        self.config_imagen()
         self.config_teclas()
         self.init_anot() 
         self.ajustar_fig() 
@@ -338,4 +455,5 @@ env.vars['g'] = Grafica()
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
 env.vars['rad'] = 1 
 env.vars['cid_t'] = None
+env.vars['cid_c'] = None
 env.vars['e1'] = Ejecucion() 
