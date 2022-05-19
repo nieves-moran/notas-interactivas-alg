@@ -96,6 +96,10 @@ class Circulo:
     valor = None
     anot_dist = None 
 
+def dist(p1,p2,m): 
+    x1,y1 = p1
+    x2,y2 = p2 
+    return math.floor(m*math.sqrt((x1 - x2)** 2 + (y1 - y2)**2))
 
 class Env:
     vars = dict()  
@@ -146,14 +150,17 @@ def crear_aleatoria():
             ars.append((v,u))
     arb = crear_arbol(ars,len(verts))
     ars_p = [] 
-    for (u,v) in arb: 
-        p = random.randint(1,50)
-        ars_p.append((u,v,p))
+    r = random.randint(1,5)
+    for (u,v) in arb:
+        p1 = env.vars['g'].pos_nodos[u].pos
+        p2 = env.vars['g'].pos_nodos[v].pos
+        ars_p.append((u,v,dist(p1,p2,r)))
     for v,x,y in verts: 
         for u in vecinos(mat,x,y,n): 
             if(random.randint(0,1) % 2 == 1): 
-                p = random.randint(1,50)
-                ars_p.append((v,u,p))
+                p1 = env.vars['g'].pos_nodos[u].pos
+                p2 = env.vars['g'].pos_nodos[v].pos
+                ars_p.append((v,u,dist(p1,p2,r)))
     for (u,v,p) in ars_p: 
         agregar_arista(v,u,p) 
 def agregar_vertice(v,x,y): 
@@ -207,11 +214,38 @@ class Ejecucion:
     inicial = None
     color1 = None 
     color2 = None 
-    sig_min = None 
+    sig_min = None
+    ax_anot = None
+    anot = None 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
-
+        plt.subplots_adjust(bottom=0.3)
+        plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+    def actualizar_anotacion(self,v,d): 
+        heap = "{"
+        if(self.heap): 
+            for i in range(0,len(self.heap)-1): 
+                heap += "{},".format(self.heap[i][1])
+            heap += "{}".format(self.heap[len(self.heap)-1][1]) 
+        heap += "}" 
+        def obtener_camino(u): 
+            camino = [] 
+            while(self.padre[u] != -1):
+                camino.append(u) 
+                u = self.padre[u]
+            camino.append(u)
+            return camino 
+        text = "-El nodo que se agrega al conjunto $S$ es {}\n".format(v)
+        text += "-la distancia del nodo {} al nodo inicial {} es {}\n".format(v,self.inicial,d)
+        text += "-El camino minimo del nodo {} al nodo inicial {} es {}\n".format(v,self.inicial,obtener_camino(v))
+        text += "-Los nodos en el heap son: {}\n".format(heap)
+        self.anot.set(text = text)
+        return 
     def siguiente_paso(self):
+        if(not self.heap):
+            return
         self.heap.sort(key = lambda x : x[0])
         (d,x) = self.heap[0]
         self.heap.pop(0) 
@@ -240,6 +274,7 @@ class Ejecucion:
                 g.pos_nodos[v].anot_dist.set(text = '{}'.format(self.dist[v]))
                 g.ady[x][v].linea.set(color = self.color2)
                 g.ady[x][v].linea.set(linewidth = 3)
+        self.actualizar_anotacion(x,d) 
         if(self.heap): 
             self.heap.sort(key = lambda x : x[0])
             (d,x) = self.heap[0]
@@ -274,15 +309,19 @@ class Ejecucion:
             x,y = env.vars['g'].pos_nodos[i].img.get_center() 
             env.vars['g'].pos_nodos[i].anot_dist = env.vars['ax'].text(x, y-0.5, '$\infty$',fontsize = 9,ha='center', va='center') 
     def escoger_primer_vertice(self): 
-        self.inicial = 0 
+        self.inicial = random.randint(0,self.n)
+    def init_anot(self): 
+        self.anot = self.ax_anot.text(0.1,0.7,"",va = 'top',ha = "left")
+    def ajustar_fig(self): 
+        self.zoom_mas()
+        self.zoom_mas() 
     def __init__(self): 
         crear_aleatoria() 
         color_map = plt.get_cmap('tab20', 1000)
         self.color1 = color_map(0.6)
-        self.color2 = color_map(0.9)
-        self.escoger_primer_vertice() 
+        self.color2 = color_map(0.9) 
         self.n = len(env.vars['g'].pos_nodos.keys())
-        print(self.n)
+        self.escoger_primer_vertice()
         self.alcanzados = [] 
         self.heap = [(0,self.inicial)] 
         self.padre = [-1 for i in range(0,self.n) ]
@@ -292,7 +331,8 @@ class Ejecucion:
         self.anota_distancias() 
         env.vars['g'].pos_nodos[0].anot_dist.set(text = '{}'.format(self.dist[0]))
         self.config_teclas()
-
+        self.init_anot() 
+        self.ajustar_fig() 
 env = Env() 
 env.vars['g'] = Grafica()
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
