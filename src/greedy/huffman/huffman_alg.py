@@ -157,21 +157,8 @@ class Ejecucion:
     siguientes = []  
     nuevo = None  
     aristas_coloreadas = []
-    cuad_cod = None  
-    def dibujar_cuadro_codigo(self,x,y): 
-        #dibuja el cuadro con el codigo
-        self.cuad_cod =  Cuadro_codigo() 
-        self.cuad_cod.rect  = Rectangle((x,y),width = 10,height = 3) 
-        env.vars['ax'].add_patch(self.cuad_cod.rect)
-        self.cuad_cod.anot = env.vars['ax'].text(x, y,"la codificacion es",fontsize = 9,bbox=dict(facecolor='none', edgecolor='black', boxstyle='round,pad=1',alpha=0.1)) 
-        env.vars['ax'].relim()
-        env.vars['ax'].autoscale_view()
-    def limpiar_cuadro_codigo(self): 
-        if(self.cuad_cod != None): 
-            self.cuad_cod.rect.set(visible = False)
-            self.cuad_cod.anot.set(visible = False)
-    def obtener_frecuencias(self): 
-        cad = "hfjadhfjhadkfhadjfhakhfdjkhadkjfhadkjhfsqiequropqjdhfjkadh"
+    anot = None
+    def obtener_frecuencias(self,cad): 
         freq = dict() 
         for c in cad: 
             if(c not in freq): 
@@ -193,7 +180,12 @@ class Ejecucion:
             arbol.n_nodos = arbol.n_nodos + 1
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.subplots_adjust(bottom=0.3)
         plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+        self.zoom_mas() 
+        self.zoom_mas() 
     def dos_mas_chicos(self):
         arbol = env.vars['arbol'] 
         lista = []
@@ -201,27 +193,6 @@ class Ejecucion:
             lista.append((v.valor,v))
         lista.sort(key = (lambda elem : elem[0]))
         return lista
-    def colorea_siguientes_nuevo(self,nuevo):
-        #elimina los cambios en los anteriores 
-        if(self.nuevo != None): 
-            self.nuevo.circ.set(edgecolor = 'black')
-        for v in self.siguientes: 
-            v.circ.set(facecolor = 'white')
-        l = self.dos_mas_chicos() 
-        #si solo hay un nodo solo pintalo de rojo 
-        if(len(l) == 1): 
-            nuevo.circ.set(edgecolor = 'red')
-            self.nuevo = nuevo 
-            return 
-        #si hay dos o más, pinta de amarillo los nuevo y de rojo el combinado 
-        v1 = l[0][1]
-        v2 = l[1][1]
-        v1.circ.set(facecolor = 'yellow')
-        v2.circ.set(facecolor = 'yellow')
-        if(nuevo != None): 
-            nuevo.circ.set(edgecolor = 'red')
-        self.siguientes = [v1,v2]
-        self.nuevo = nuevo
     def construye(self): 
         arbol = env.vars['arbol']
         lista = []
@@ -246,19 +217,33 @@ class Ejecucion:
         arbol.raiz.hijos.append(n_vert)
         n_vert.padre = arbol.raiz 
         dibujar_arbol() 
-        self.colorea_siguientes_nuevo(n_vert) 
+        text = "Se unen los nodos con frecuencias {:.2f} y {:.2f} (en rojo)\n".format(v1.valor,v2.valor)
+        text += "para formar el nodo con valor {:.2f} (en naranja)".format(n_vert.valor)
+        self.anot.set(text = text)
+        v1.circ.set(facecolor = '#FF0000')
+        v2.circ.set(facecolor = '#FF0000')
+        n_vert.circ.set(facecolor ='#FF8000')
     def colorea_aristas(self,actual): 
         arbol = env.vars['arbol']
+        letra = actual.letra
         #quitar el color a las que están coloreadas 
         for (u,v) in self.aristas_coloreadas: 
             arbol.aristas[(u,v)].linea.set(color = 'black')
             arbol.aristas[(u,v)].linea.set(linewidth = 1)
+        codif = ""
         while(actual.padre != None): 
-            arbol.aristas[(actual.padre,actual)].linea.set(color = 'blue')
+            arbol.aristas[(actual.padre,actual)].linea.set(color = '#FF3333')
             arbol.aristas[(actual.padre,actual)].linea.set(linewidth = 3)
             self.aristas_coloreadas.append((actual.padre,actual))
+            if(actual.padre.hijos[0] == actual): 
+                codif += '0'
+            else:
+                codif += '1'
             actual = actual.padre 
-
+        codif = codif[:len(codif)-1]
+        codif= codif[::-1]
+        text = "La codificacion de la letra {} es {}.".format(letra,codif)
+        self.anot.set(text = text)
     @out1.capture() 
     def handler_mouse(self,event): 
         if(event.xdata == None or event.ydata == None): 
@@ -269,14 +254,9 @@ class Ejecucion:
                 x,y = h.circ.get_center() 
                 if((x - event.xdata)**2 + (y - event.ydata)**2 <= env.vars['rad']):
                     self.colorea_aristas(h)
-                    self.dibujar_cuadro_codigo(x,y-3) 
                     break
-    @out1.capture() 
-    def handler_mouse_release(self,event): 
-        self.limpiar_cuadro_codigo() 
     def configuracion_mouse_codif(self):  
         env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.handler_mouse)
-        env.vars['cid_m_r'] = env.vars['fig'].canvas.mpl_connect('button_release_event', self.handler_mouse_release)
     def etiqueta_arbol(self): 
         if(env.vars['anotar']): 
             return
@@ -287,7 +267,14 @@ class Ejecucion:
         #tomar los dos nodos hijos del 0 que tienen la frecuencia mas chica 
         arbol = env.vars['arbol']
         if(len(arbol.raiz.hijos) == 1): 
-            self.etiqueta_arbol() 
+            self.etiqueta_arbol()
+            text = "Se etiquetan las aristas del arbol. Las aristas a hijos izquierdos\n"
+            text += "con 0, a hijos derechos con 1.\n"
+            text += "Haz click en los nodos etiquetados con letras (hojas) para ver \n"
+            text += "su codificacion.\n" 
+            text += "Nota que las letras mas frecuentes tienen una codificacion mas pequena."
+            env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t'])
+            self.anot.set(text = text)
         else: 
             self.construye() 
     @out1.capture()
@@ -297,7 +284,7 @@ class Ejecucion:
         if(event.key == '-'):
             self.zoom_menos()  
         elif(event.key == '+'): 
-            self.zoom_mas() 
+            self.zoom_mas()  
     def zoom_mas(self): 
         x,y = env.vars['fig'].get_size_inches()
         env.vars['fig'].set_size_inches(x+1,y+1)
@@ -306,12 +293,41 @@ class Ejecucion:
         env.vars['fig'].set_size_inches(x-1,y-1)
     def config_teclas(self): 
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
+    def init_anot(self): 
+        text= "Escribe alguna cadena en el cuadro de texto bajo \n"
+        text += "la imagen y cuando estes listo presiona el boton"
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
+    @out1.capture()
+    def handler_boton(self,event):
+        s = self.botones.children[0].value
+        if(s == ''): 
+            text = "La cadena no puede ser vacia."
+            self.anot.set(text = text)
+        else: 
+            self.crear_arbol_inicial(self.obtener_frecuencias(s))
+            dibujar_arbol() 
+            self.config_teclas()
+            self.botones.children = [] 
+            text = "Los nodos en la imagen estan etiquetados con las letras de\n"
+            text += "la cadena y sus respectivas frecuencias.\n"
+            text += "Haz click en la imagen, a partir de aqui, presiona n para ejecutar un paso mas \n"
+            text += "del algoritmo." 
+            self.anot.set(text = text)
+    def poner_botones(self): 
+        t = widgets.Text(
+                        value='',
+                        description='Cadena:',
+                        disabled=False
+                        )
+        b = widgets.Button(description="Listo")
+        b.on_click(self.handler_boton)
+        self.botones = widgets.VBox([t,b])
+        display(self.botones)
     def __init__(self): 
         self.config_imagen()
-        self.config_teclas()
-        self.crear_arbol_inicial(self.obtener_frecuencias())
-        dibujar_arbol() 
-        self.colorea_siguientes_nuevo(None) 
+        self.poner_botones()  
+        self.init_anot()
+
 env = Env() 
 env.vars['arbol'] = Arbol() 
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
