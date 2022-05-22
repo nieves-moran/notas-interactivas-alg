@@ -201,9 +201,21 @@ def dibujar_grafica(g_k,ax_k):
     dibujar_vertices(g_k,ax_k) 
     dibujar_aristas(g_k,ax_k)
 
-
+def dibujar_arista(u,v,ax_k,g_k):
+    n = env.vars[g_k].ady[u][v]
+    xu,yu = env.vars[g_k].pos_nodos[u].img.get_center() 
+    xv,yv = env.vars[g_k].pos_nodos[v].img.get_center() 
+    xu,yu = inter_points(env.vars['rad'],xu,yu,xv,yv)
+    xv,yv = inter_points(env.vars['rad'],xv,yv,xu,yu)
+    linea = PathPatch(Path([(xu,yu),(xv,yv)]), facecolor='none', edgecolor='black')
+    env.vars[ax_k].add_patch(linea)
+    xm,ym = punto_medio(xu,yu,xv,yv,0.5,0.2)
+    anot = env.vars[ax_k].annotate("{}".format(n.peso), (xm,ym),color='black', weight='bold', fontsize=7, ha='center', va='center') 
+    n.linea = linea 
+    n.anot = anot 
 def agregar_arista(u,v,p,g_k):
         #si ya está, no la agregues 
+        agregada = False
         if( not ((v in env.vars[g_k].ady and u in env.vars[g_k].ady[v]) or (u in env.vars[g_k].ady and v in env.vars[g_k].ady[u]))): 
            #agregar a la grafica 
             n = Nodo()
@@ -223,6 +235,8 @@ def agregar_arista(u,v,p,g_k):
             env.vars[g_k].ady[v][u].arista = (u,v)
             env.vars[g_k].ady[v][u].peso = p
             #agregar el widget
+            agregada = True 
+        return agregada 
 def clonar_grafica(g):
     gc = Grafica() 
     for v,c in g.pos_nodos.items(): 
@@ -249,12 +263,16 @@ class Kruskal:
     ax_anot = None 
     anot = None
     peso = 0 
+    ind_nods = 0 
+    extremos = [] 
     def config_imagen(self): 
         env.vars[self.ax_k].set_aspect('equal', adjustable='box')
         plt.subplots_adjust(bottom=0.3)
         plt.axis("off")
         self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
         plt.axis("off")
+        self.zoom_mas()
+        self.zoom_mas() 
     def actualizar_anot(self,a,esc):
         (u,v,p) = a  
         if(esc): 
@@ -303,10 +321,7 @@ class Kruskal:
         env.vars[self.fig_k].set_size_inches(x-1,y-1)
     def config_teclas(self): 
         env.vars[self.cid_t_k] = env.vars[self.fig_k].canvas.mpl_connect('key_press_event', self.teclas_handler)
-    def colorear_vertices(self): 
-        g = env.vars[self.g_k] 
-        for i in g.pos_nodos.keys(): 
-            g.pos_nodos[i].img.set(facecolor = self.array_col[i])
+ 
     def obtener_aristas_ord(self): 
         ars = [] 
         ars_sp = [] 
@@ -319,23 +334,144 @@ class Kruskal:
         ars.sort(key = lambda x : x[2])
         return ars
     def init_anot(self): 
-        self.anot = self.ax_anot.text(0.1,0.7,"",va = 'top',ha = "left")
+        text= "Escoge entrada de usuario o generar grafica aleatoria con los botones bajo la imagen"
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
+    def handler_al(self,event): 
+        texto = "Presiona la imagen. A partir de aqui, cada vez que presiones n se ejecutara \n" 
+        texto += "el siguiente paso."
+        self.anot.set(text = texto)
+        self.botones.children = [] 
+        self.array_col = []
+        crear_aleatoria('g1')
+        dibujar_grafica(self.g_k,self.ax_k) 
+        self.ar_ord = self.obtener_aristas_ord() 
+        self.n = len(env.vars[self.g_k].pos_nodos.keys())
+        self.union_f = Union_find(self.n)
+        env.vars['g2'] = clonar_grafica(env.vars['g1'])
+        env.vars['fig2'],env.vars['ax2'] = plt.subplots()
+        env.vars['e2'] = Prim('g2','ax2','fig2','cid_t2',True)
+        color_map = plt.get_cmap('tab20c', 1000)
+    @out1.capture() 
+    def poner_nodo(self,event):
+        if(event.inaxes== self.ax_anot): 
+            return 
+        if(event.xdata == None or event.ydata == None): 
+            return 
+        x,y = event.xdata,event.ydata
+        if(x < 1 or y < 1 or y > 24 or x > 24): 
+            return 
+        c = Circle((x , y),radius = 1, facecolor = 'white',edgecolor = 'black')
+        env.vars['ax1'].add_patch(c)
+        circ = Circulo() 
+        circ.img = c 
+        circ.pos = [x,y]
+        circ.anot = env.vars['ax1'].text(x,y,self.ind_nods,va='center',ha='center')
+        circ.valor = self.ind_nods
+        env.vars['g1'].pos_nodos[self.ind_nods] = circ  
+        self.ind_nods = self.ind_nods + 1 
+    @out1.capture() 
+    def poner_aristas(self,event): 
+        if(event.inaxes== self.ax_anot): 
+            return 
+        if(event.xdata == None or event.ydata == None): 
+            return
+        x,y = event.xdata,event.ydata
+        for i,c in env.vars['g1'].pos_nodos.items():
+            xc,yc = c.pos 
+            if((x-xc)**2 + (y-yc)**2 <= 1 ):
+                if( len(self.extremos) == 1):
+                    if(self.extremos[0] != i):
+                        p1 = env.vars['g1'].pos_nodos[self.extremos[0]].pos 
+                        p2 = xc,yc 
+                        ag = agregar_arista(self.extremos[0],i,dist(p1,p2,5),self.g_k)
+                        if(ag): 
+                            dibujar_arista(self.extremos[0],i,self.ax_k,self.g_k)
+                        self.extremos = [] 
+                    else: 
+                        break 
+                else: 
+                    self.extremos.append(i)
+                break
+    def conexa(self): 
+        cola = [0] 
+        revisados = []
+        while(cola): 
+            x = cola[0]
+            cola.pop(0) 
+            revisados.append(x)
+            #si no tiene hijos pues solo haz continue 
+            if(x not in env.vars[self.g_k].ady): 
+                continue 
+            for y in env.vars[self.g_k].ady[x].keys():
+                if(y not in revisados and y not in cola):  
+                    cola.append(y)
+        return len(revisados) == len(env.vars[self.g_k].pos_nodos)
+    def listo_aristas_handler(self,event): 
+        if(self.conexa()): 
+            self.n = len(env.vars['g1'].pos_nodos.keys())
+            text = "Presiona la imagen.\n"
+            text += "A partir de aqui, cada vez que presiones n se ejecutara \n" 
+            text += "el siguiente paso del algoritmo de Kruskal."
+            self.anot.set(text = text)
+            env.vars['fig1'].canvas.mpl_disconnect(env.vars['cid_c'])
+            self.botones.children = [] 
+            self.n = len(env.vars[self.g_k].pos_nodos.keys())
+            self.union_f = Union_find(self.n)
+            self.ar_ord = self.obtener_aristas_ord()
+            #redibujar la grafica
+            dibujar_grafica(self.g_k,self.ax_k)
+            #poner la figura de prim  
+            env.vars['g2'] = clonar_grafica(env.vars['g1'])
+            env.vars['fig2'],env.vars['ax2'] = plt.subplots()
+            env.vars['e2'] = Prim('g2','ax2','fig2','cid_t2',False)
+
+        else: 
+            text = "La grafica tiene que ser conexa." 
+            self.anot.set(text = text)
+    def listo_nodos_handler(self,event): 
+        if(len(env.vars['g1'].pos_nodos) < 2):
+            texto = "Debe haber al menos un par de nodos."
+            self.anot.set(text = texto) 
+        else: 
+            texto = "Agrega las aristas presionando el par de nodos que quieres unir.\n"
+            texto += "Una vez listo presiona el boton bajo la imagen"
+            self.anot.set(text = texto)
+            env.vars['fig1'].canvas.mpl_disconnect(env.vars['cid_c'])
+            env.vars['cid_c'] = env.vars['fig1'].canvas.mpl_connect('button_press_event', self.poner_aristas)
+            boton_listo =  widgets.Button(description="Guardar aristas")
+            boton_listo.on_click(self.listo_aristas_handler)
+            self.botones.children = [boton_listo] 
+            self.rect_nodos.set(visible = False)
+    def handler_us(self,event): 
+        texto = "Presiona los lugares dentro el cuadro donde quieres los nodos. \n" 
+        texto += "Una vez listo presiona el boton bajo la imagen"
+        self.anot.set(text = texto)
+        env.vars['cid_c'] = env.vars['fig1'].canvas.mpl_connect('button_press_event', self.poner_nodo)
+        #hacer de 10x10 el ax
+        self.rect_nodos = Rectangle((0,0),width = 25,height = 25,facecolor = 'white',edgecolor = 'black')
+        env.vars['ax1'].add_patch(self.rect_nodos)
+        env.vars['ax1'].relim()
+        env.vars['ax1'].autoscale_view()
+        boton_listo =  widgets.Button(description="Guardar nodos")
+        boton_listo.on_click(self.listo_nodos_handler)
+        self.botones.children = [boton_listo] 
+    def agregar_botones(self): 
+        boton_us = widgets.Button(description="Entrada de usuario")
+        boton_al = widgets.Button(description="Grafica aleatoria")
+        boton_al.on_click(self.handler_al)
+        boton_us.on_click(self.handler_us)
+        self.botones = widgets.HBox([boton_us,boton_al])
+        display(self.botones)
     def __init__(self,g_k,ax_k,fig_k,cid_t_k): 
         self.g_k = g_k 
         self.ax_k = ax_k 
         self.fig_k = fig_k 
         self.cid_t_k = cid_t_k 
-        self.array_col = []
-        dibujar_grafica(self.g_k,ax_k) 
-        self.ar_ord = self.obtener_aristas_ord() 
-        self.n = len(env.vars[self.g_k].pos_nodos.keys())
-        self.union_f = Union_find(self.n)
-        self.ar_ord = self.obtener_aristas_ord()
-        color_map = plt.get_cmap('tab20c', 1000)
         #para el número de colores 
         self.config_imagen()
         self.config_teclas()
         self.init_anot()
+        self.agregar_botones()
 class Prim:  
     ind_ar = 0 
     n = None
@@ -347,12 +483,21 @@ class Prim:
     ax_anot = None 
     anot = None
     peso = 0 
+    aleat = False
     def config_imagen(self): 
         env.vars[self.ax_k].set_aspect('equal', adjustable='box')
         plt.subplots_adjust(bottom=0.3)
         plt.axis("off")
         self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
         plt.axis("off")
+        #el cuadrado se añade cuando sea una gráfica ingresada por el usuario 
+        if(not self.aleat): 
+            env.vars[self.ax_k].add_patch(Rectangle((0,0),width = 25,height = 25,visible = False))
+            env.vars[self.ax_k].relim()
+            env.vars[self.ax_k].autoscale_view()
+        #hacer la figura más grande
+        self.zoom_mas()
+        self.zoom_mas() 
     def actualizar_anot(self,u):
         self.heap.sort(key = lambda x :  x[1])
         if(self.heap): 
@@ -416,12 +561,16 @@ class Prim:
         self.inicial = random.randint(0,self.n-1)
         self.heap = [(self.inicial,0)]
     def init_anot(self): 
-        self.anot = self.ax_anot.text(0.1,0.7,"",va = 'top',ha = "left")
-    def __init__(self,g_k,ax_k,fig_k,cid_t_k):
+        text = "Presiona la imagen.\n"
+        text += "A partir de aqui, cada vez que presiones n se ejecutara\n"
+        text += "el siguiente paso del algoritmo de Prim."
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
+    def __init__(self,g_k,ax_k,fig_k,cid_t_k,aleat):
         self.g_k = g_k
         self.ax_k = ax_k 
         self.fig_k = fig_k 
         self.cid_t_k = cid_t_k 
+        self.aleat = aleat
         dibujar_grafica(self.g_k,ax_k) 
         self.array_col = []
         self.n = len(env.vars[self.g_k].pos_nodos.keys())
@@ -430,6 +579,8 @@ class Prim:
         self.config_teclas()
         self.init_anot() 
 
+
+
 env = Env() 
 env.vars['g1'] = Grafica()
 env.vars['g2'] = Grafica()
@@ -437,8 +588,8 @@ env.vars['fig1'],env.vars['ax1'] = plt.subplots()
 env.vars['rad'] = 1 
 env.vars['cid_t1'] = None
 env.vars['cid_t2'] = None
-crear_aleatoria('g1')
-env.vars['g2'] = clonar_grafica(env.vars['g1'])
+env.vars['cid_c'] = None
 env.vars['e1'] = Kruskal('g1','ax1','fig1','cid_t2') 
-env.vars['fig2'],env.vars['ax2'] = plt.subplots()
-env.vars['e2'] = Prim('g2','ax2','fig2','cid_t2')
+#env.vars['g2'] = clonar_grafica(env.vars['g1'])
+#env.vars['fig2'],env.vars['ax2'] = plt.subplots()
+#env.vars['e2'] = Prim('g2','ax2','fig2','cid_t2')
