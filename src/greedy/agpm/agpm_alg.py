@@ -503,7 +503,7 @@ class Prim:
         if(self.heap): 
             heap = "{"
             for i in range(0,len(self.heap)-1):
-                (v,u) = self.heap[i] 
+                (v,_) = self.heap[i] 
                 heap = heap + "{},".format(v)
             heap += "{}".format(self.heap[len(self.heap)-1][0])
             heap += "}"
