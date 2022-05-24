@@ -86,7 +86,7 @@ class Celda:
     anot = None 
     valor = 0 
 class Arista: 
-    linea = None
+    lineas = []
     anot = None
 def dfs(n,arbol,prof,y): 
     if(not n.hijos): 
@@ -115,8 +115,9 @@ def limpiar_arbol():
     for _,v in arbol.vertices.items(): 
         if(v.arreglo != None): 
             limpiar_arreglo(v.arreglo)
-    for (p,h),a in arbol.aristas.items(): 
-        a.linea.set(visible = False)
+    for (p,h),a in arbol.aristas.items():
+        for l in a.lineas: 
+            l.set(visible = False ) 
     arbol.aristas = dict() 
 def dibujar_arreglo(n,arreglo,x,y,etiq_b): 
     ax = env.vars['ax']
@@ -142,6 +143,21 @@ def puntos_arista(p,h):
     xh = xh + (3*(len(h.arreglo.elms)))/2 
     yh = yh + 4
     return xp,yp,xh,yh
+def puntos_area(p, h): 
+    xp,yp = p.arreglo.elms[0].rect.get_xy()
+    xh,yh = h.arreglo.elms[0].rect.get_xy()
+    if(h.tipo_h == 'izq'): 
+        p1 = xp,yp 
+        p2 = xp + p.pivote*3, yp 
+        p3 = xh,yh + 3 
+        p4 = xh + len(h.arreglo.elms)*3, yh + 3 
+    else: 
+        p1 = xp + (p.pivote+1)*3, yp 
+        p2 = xp + len(p.arreglo.elms)*3,yp 
+        p3 =  xh,yh + 3  
+        p4 =  xh + len(h.arreglo.elms)*3, yh + 3 
+    #p y h son nodos 
+    return ((p1,p2),(p3,p4))
 def dibujar_arbol():  
     limpiar_arbol() 
     rad = env.vars['rad']
@@ -153,7 +169,7 @@ def dibujar_arbol():
         v.circ = None 
     for h,p in prof_h.items():
         cola.append((h,x,p))
-        x = x + (len(h.arr))*3 + 5
+        x = x + (len(arbol.raiz.arr)*3)*0.7 + 5
     hijos_proc = dict()
     while(cola): 
         n,x,y = cola[0]
@@ -171,11 +187,13 @@ def dibujar_arbol():
     #dibujar aristas
     for i,p in arbol.vertices.items():
         for h in p.hijos:  
-            xp,yp,xh,yh = puntos_arista(p,h)  
-            linea = PathPatch(Path([(xp,yp),(xh,yh)]), facecolor='none', edgecolor='black',linestyle = '--')
-            env.vars['ax'].add_patch(linea)
+            (p1,p2),(p3,p4) = puntos_area(p,h)  
+            linea1 = PathPatch(Path([p1,p3]), facecolor='none', edgecolor='black',linestyle = '--')
+            env.vars['ax'].add_patch(linea1)
+            linea2 = PathPatch(Path([p2,p4]), facecolor='none', edgecolor='black',linestyle = '--')
+            env.vars['ax'].add_patch(linea2)
             arbol.aristas[(p,h)] = Arista() 
-            arbol.aristas[(p,h)].linea = linea 
+            arbol.aristas[(p,h)].lineas = [linea1,linea2] 
     env.vars['ax'].relim(visible_only=True)
     env.vars['ax'].autoscale_view()
 #frecuencias es un diccionario de letra a un numero
@@ -205,6 +223,7 @@ class Ejecucion:
     cola = [] 
     arr_ab = True
     hojas = [] 
+    termina = False 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
         plt.subplots_adjust(bottom=0.3)
@@ -214,13 +233,21 @@ class Ejecucion:
         self.zoom_mas() 
         self.zoom_mas() 
     def init_anot(self): 
-        text= "hola"
+        text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
+        text += "el siguiente paso de quicksort. Primero veras el arbol\n"
+        text += "resultante de las llamadas recursivas.\n"
+        text += "Si tienes problemas para ver los numeros\n" 
+        text += "en el arbol haz mas grande la imagen con +, y mas chica con -."
         self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
     def arriba_abajo(self): 
+        text= "Los numeros en verde son los pivotes. A la izquierda \n"
+        text += "estan los numeros menores o iguales que los pivotes y a la \n " 
+        text += "derecha los mayores"
+        self.anot.set(text = text)
         #tomas de la cola 
         cola_n = [] 
         arbol = env.vars['arbol']
-        for x in self.cola: 
+        for x,d in self.cola: 
             arr1,arr2,i = partition(x.arr)
             x.pivote = i 
             if(arr1): 
@@ -228,7 +255,7 @@ class Ejecucion:
                 v1.tipo_h = 'izq'
                 v1.padre = x 
                 v1.arr = arr1
-                cola_n.append(v1)
+                cola_n.append((v1,d+1))
                 x.hijos.append(v1)
                 arbol.vertices[arbol.n_nodos] = v1 
                 arbol.n_nodos = arbol.n_nodos + 1 
@@ -237,22 +264,30 @@ class Ejecucion:
                 v2.tipo_h = 'der'
                 v2.padre = x 
                 v2.arr = arr2 
-                cola_n.append(v2)
+                cola_n.append((v2,d+1))
                 x.hijos.append(v2)
                 arbol.vertices[arbol.n_nodos] = v2
                 arbol.n_nodos = arbol.n_nodos + 1
             if(not x.hijos): 
-                self.hojas.append(x) 
+                self.hojas.append((x,d)) 
         dibujar_arbol()
         self.cola = cola_n
         if(not self.cola): 
             self.arr_ab = False
     def abajo_arriba(self):
+        if(self.termina): 
+            return 
         #toma una hoja 
-        h = self.hojas[0]
+        self.hojas.sort(key = lambda x : x[1],reverse = True)
+        h,d = self.hojas[0]
         self.hojas.pop(0)
         #ve a tu padre 
         p = h.padre 
+        if(p == None): 
+            self.termina = True
+            text= "El algoritmo termina, todo el arreglo esta ordenado.\n"
+            self.anot.set(text = text)
+            return 
         if(h.tipo_h == 'izq'): 
             for i in range(0,len(h.arr)): 
                 p.arr[i] = h.arr[i]
@@ -263,10 +298,15 @@ class Ejecucion:
                 p.arreglo.elms[i].rect_color = '#CCFFE5'
         p.hijos.remove(h)
         if(not p.hijos): 
-            self.hojas.append(p) 
+            self.hojas.append((p,d-1)) 
         #elimino el nodo  
         #dibujar el arbol 
-        dibujar_arbol() 
+        dibujar_arbol()
+        text= "Esta etapa es el retorno de la recursion,\n"
+        text += "Cada vez que presiones n, el resultado de una llamada recursiva \n" 
+        text += "se sustituira en arreglo del padre. Las partes verdes de los arreglos ya \n"
+        text += "se encuentran ordenadas." 
+        self.anot.set(text = text) 
     def siguiente_paso(self):
         if(self.arr_ab):
              self.arriba_abajo() 
@@ -289,10 +329,10 @@ class Ejecucion:
     def config_teclas(self): 
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
     def crear_arbol_inicial(self):
-        arr =  [random.randint(1,15) for i in range(0,15)]
+        arr =  [random.randint(-20,20) for i in range(0,12)]
         arbol = env.vars['arbol']
         arbol.raiz.arr = arr
-        self.cola = [arbol.raiz] 
+        self.cola = [(arbol.raiz,0)] 
     def __init__(self): 
         self.config_imagen()
         self.config_teclas() 
