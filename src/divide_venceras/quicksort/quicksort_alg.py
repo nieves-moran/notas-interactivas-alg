@@ -53,8 +53,13 @@ class Arbol:
         self.n_nodos = 1  
         self.aristas  = dict()
         self.niveles_l.append([self.raiz])
-
+class Variable: 
+    anot = None 
+    valor = None 
 class Vertice: 
+    #para ver si los generaron o no 
+    izq = False
+    der = False 
     circ = None 
     anotc = None 
     padre = None
@@ -224,6 +229,14 @@ class Ejecucion:
     arr_ab = True
     hojas = [] 
     termina = False 
+    partition = True
+    i = -1 
+    j = 0 
+    r = None
+    anot_i = None 
+    anot_j  = None 
+    anot_r = None 
+    nodo_act = None
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
         plt.subplots_adjust(bottom=0.3)
@@ -234,52 +247,60 @@ class Ejecucion:
         self.zoom_mas() 
     def init_anot(self): 
         text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
-        text += "el siguiente paso de quicksort. Primero veras el arbol\n"
-        text += "resultante de las llamadas recursivas.\n"
-        text += "Si tienes problemas para ver los numeros\n" 
-        text += "en el arbol haz mas grande la imagen con +, y mas chica con -."
+        text += "el siguiente paso de quicksort." 
         self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
-    def arriba_abajo(self): 
-        text= "Los numeros en verde son los pivotes. A la izquierda \n"
-        text += "estan los numeros menores o iguales que los pivotes y a la \n " 
-        text += "derecha los mayores"
-        self.anot.set(text = text)
-        #tomas de la cola 
-        cola_n = [] 
+    
+    def crear_nodo_hijo(self,lado): 
         arbol = env.vars['arbol']
-        for x,d in self.cola: 
-            arr1,arr2,i = partition(x.arr)
-            x.pivote = i 
-            if(arr1): 
-                v1 = Vertice()
-                v1.tipo_h = 'izq'
-                v1.padre = x 
-                v1.arr = arr1
-                cola_n.append((v1,d+1))
-                x.hijos.append(v1)
-                arbol.vertices[arbol.n_nodos] = v1 
-                arbol.n_nodos = arbol.n_nodos + 1 
-            if(arr2): 
-                v2 = Vertice()  
-                v2.tipo_h = 'der'
-                v2.padre = x 
-                v2.arr = arr2 
-                cola_n.append((v2,d+1))
-                x.hijos.append(v2)
-                arbol.vertices[arbol.n_nodos] = v2
-                arbol.n_nodos = arbol.n_nodos + 1
-            if(not x.hijos): 
-                self.hojas.append((x,d)) 
+        v1 = Vertice()
+        if(lado == 'izq'): 
+            arr = self.nodo_act.arr[0:self.nodo_act.pivote]   
+            v1.tipo_h = 'izq'
+        else: 
+            arr = self.nodo_act.arr[self.nodo_act.pivote+1:]   
+            v1.tipo_h = 'der'
+        v1.padre = self.nodo_act
+        v1.arr = arr 
+        self.nodo_act.hijos.append(v1)
+        arbol.vertices[arbol.n_nodos] = v1 
+        arbol.n_nodos = arbol.n_nodos + 1 
+        self.nodo_act = v1 
         dibujar_arbol()
-        self.cola = cola_n
-        if(not self.cola): 
-            self.arr_ab = False
+        #poner los indices 
+        n = len(self.nodo_act.arr)
+        self.r = n - 1
+        x,y =  self.nodo_act.arreglo.elms[0].rect.get_xy() 
+        self.anot_i.set(position  = (x - 1.5,y + 8))
+        self.anot_j.set(position =  (x+1.5,y+6))
+        self.anot_r.set(position = (x + 3*n - 1.5,y+4))
+        self.partition = True
+        #poner bien los indices 
+        self.i = -1 
+        self.j = 0 
+    def arriba_abajo(self): 
+        if(self.nodo_act.pivote > 0  and  not self.nodo_act.izq):
+                text = "Se produce una llamada recursiva sobre el subarreglo izquierdo"
+                self.anot.set(text = text)
+                self.nodo_act.izq = True 
+                self.crear_nodo_hijo('izq')
+        elif(self.nodo_act.pivote < len(self.nodo_act.arr) -  1 and not self.nodo_act.der): 
+                text = "Se produce una llamada recursiva sobre el subarreglo derecho"
+                self.anot.set(text = text)
+                self.nodo_act.der= True 
+                self.crear_nodo_hijo('der')
+        else:
+            self.hojas = [self.nodo_act] 
+            self.abajo_arriba() 
+       
     def abajo_arriba(self):
+        text = "La llamada recursiva regresa el resultado."
+        self.anot.set(text = text)
+        self.anot_i.set(visible = False)
+        self.anot_j.set(visible = False)
+        self.anot_r.set(visible = False)
         if(self.termina): 
             return 
-        #toma una hoja 
-        self.hojas.sort(key = lambda x : x[1],reverse = True)
-        h,d = self.hojas[0]
+        h= self.hojas[0]
         self.hojas.pop(0)
         #ve a tu padre 
         p = h.padre 
@@ -298,20 +319,48 @@ class Ejecucion:
                 p.arreglo.elms[i].rect_color = '#CCFFE5'
         p.hijos.remove(h)
         if(not p.hijos): 
-            self.hojas.append((p,d-1)) 
+            self.hojas.append(p)
+            self.nodo_act= p  
         #elimino el nodo  
         #dibujar el arbol 
         dibujar_arbol()
-        text= "Esta etapa es el retorno de la recursion,\n"
-        text += "Cada vez que presiones n, el resultado de una llamada recursiva \n" 
-        text += "se sustituira en arreglo del padre. Las partes verdes de los arreglos ya \n"
-        text += "se encuentran ordenadas." 
-        self.anot.set(text = text) 
+    def swap(self,i,j):
+        temp = self.nodo_act.arr[i]
+        self.nodo_act.arr[i] = self.nodo_act.arr[j]
+        self.nodo_act.arr[j] = temp 
+        self.nodo_act.arreglo.elms[i].anot.set(text = self.nodo_act.arr[i])
+        self.nodo_act.arreglo.elms[j].anot.set(text = self.nodo_act.arr[j])
+        self.nodo_act.arreglo.elms[i].valor = self.nodo_act.arr[i]
+        self.nodo_act.arreglo.elms[j].valor = self.nodo_act.arr[j]
+
+    def ejecuta_part(self): 
+        text= "Subrutina para partir el arreglo:\n"
+        text += "El pivote {} esta marcado por el indice r\n".format(self.nodo_act.arr[self.r])
+        if(self.j == self.r): 
+            self.swap(self.i+1,self.r)
+            self.anot_r.set(x = self.anot_i.get_position()[0] + 3)
+            self.partition = False
+            self.nodo_act.pivote = self.i+1 
+            text += "La rutina para partir concluye, se intercambia el pivote"
+            self.anot.set(text = text)
+            return 
+        if(self.nodo_act.arr[self.j]  <= self.nodo_act.arr[self.r]): 
+            self.i = self.i + 1 
+            self.anot_i.set(x = self.anot_i.get_position()[0] + 3)
+            self.swap(self.i ,self.j)
+            text += "Hay un intercambio entre {} y {}, y el indice i se incrementa\n".format(self.nodo_act.arr[self.j],self.nodo_act.arr[self.i])
+        self.j = self.j + 1  
+        self.anot_j.set(x = self.anot_j.get_position()[0] + 3)
+        self.anot.set(text = text)
+    
     def siguiente_paso(self):
-        if(self.arr_ab):
-             self.arriba_abajo() 
+        if(self.partition): 
+            self.anot_i.set(visible = True)
+            self.anot_j.set(visible = True)
+            self.anot_r.set(visible = True)
+            self.ejecuta_part() 
         else: 
-            self.abajo_arriba() 
+            self.arriba_abajo() 
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -329,16 +378,25 @@ class Ejecucion:
     def config_teclas(self): 
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
     def crear_arbol_inicial(self):
-        arr =  [random.randint(-20,20) for i in range(0,12)]
+        arr =  [2,9,8,5,6,7,10,12,1,3]
         arbol = env.vars['arbol']
         arbol.raiz.arr = arr
         self.cola = [(arbol.raiz,0)] 
+        self.nodo_act = arbol.raiz
+    def poner_ind_ini(self): 
+        n = len(self.nodo_act.arr)
+        self.r = n - 1
+        x,y =  self.nodo_act.arreglo.elms[0].rect.get_xy() 
+        self.anot_i = env.vars['ax'].text(x - 1.5,y + 8,"i")
+        self.anot_j = env.vars['ax'].text(x+1.5,y+6,"j")
+        self.anot_r = env.vars['ax'].text(x + 3*n - 1.5,y+4,"r")
     def __init__(self): 
         self.config_imagen()
         self.config_teclas() 
         self.init_anot()    
         self.crear_arbol_inicial() 
         dibujar_arbol() 
+        self.poner_ind_ini()
 env = Env() 
 env.vars['arbol'] = Arbol() 
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
