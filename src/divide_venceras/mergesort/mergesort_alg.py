@@ -166,7 +166,7 @@ def dibujar_arbol():
             env.vars['ax'].add_patch(linea)
             arbol.aristas[(p,h)] = Arista() 
             arbol.aristas[(p,h)].linea = linea 
-    env.vars['ax'].relim()
+    env.vars['ax'].relim(visible_only = True)
     env.vars['ax'].autoscale_view()
 #frecuencias es un diccionario de letra a un numero
 
@@ -176,15 +176,27 @@ class Env:
 class Ejecucion:  
     cola = []
     nivel = 0 
+    ax_anot = None 
+    anot = None 
     def crear_arbol_inicial(self):
-        arr =  [random.randint(5,50) for i in range(0,16)]
+        arr =  [random.randint(-50,50) for i in range(0,16)]
         arbol = env.vars['arbol']
         arbol.raiz.arr = arr
         self.cola = [arbol.raiz] 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.subplots_adjust(bottom=0.3)
         plt.axis("off")
-
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+        self.zoom_mas() 
+        self.zoom_mas() 
+    def init_anot(self): 
+        text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
+        text += "el siguiente paso de mergesort.\n"
+        text += "Si tienes problemas para ver la imagen, puedes hacerla mas grande con +\n"
+        text += "y mas pequena con -." 
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
     def inicializar_ind_nivel(self,nivel): 
         #limpiar el nivel anterior 
         arbol = env.vars['arbol']
@@ -253,13 +265,18 @@ class Ejecucion:
             #si ahora el nivel es 0 ya no inicializar nada 
             if(self.nivel == 0): 
                 #limpiar los indices que quedan en el primer y segundo nivel 
+                text = "El algoritmo concluye. Todo el arreglo esta ordenado"
+                self.anot.set(text = text)
                 for n in arbol.niveles_l[0]: 
                     n.ind_anot.set(visible = False)
                 for n in arbol.niveles_l[1]: 
                     n.ind_anot.set(visible = False)
                 return 
+            text = "Rutina de combinado en el nivel {}".format(self.nivel-1)
+            self.anot.set(text = text)
             self.inicializar_ind_nivel(self.nivel)
         else:   
+          
             for i in range(0,len(arbol.niveles_l[self.nivel]),2): 
                 n1 = arbol.niveles_l[self.nivel][i] 
                 n2 = arbol.niveles_l[self.nivel][i+1]
@@ -268,6 +285,7 @@ class Ejecucion:
                 if(n1.ind == len(n1.arr)): 
                     p.arr[p.ind] = n2.arr[n2.ind]
                     p.arreglo.elms[p.ind].anot.set(text = p.arr[p.ind])
+                    p.arreglo.elms[p.ind].rect.set(facecolor  = '#FFCCE5')
                     n2.ind = n2.ind + 1
                     n2.ind_anot.set(x = n2.ind_anot.get_position()[0] + 3)
                     p.ind = p.ind + 1
@@ -275,6 +293,7 @@ class Ejecucion:
                 if(n2.ind == len(n2.arr)): 
                     p.arr[p.ind] = n1.arr[n1.ind]
                     p.arreglo.elms[p.ind].anot.set(text = p.arr[p.ind])
+                    p.arreglo.elms[p.ind].rect.set(facecolor  = '#FFCCE5')
                     n1.ind = n1.ind + 1
                     n1.ind_anot.set(x = n1.ind_anot.get_position()[0] + 3)
                     p.ind = p.ind + 1 
@@ -282,12 +301,14 @@ class Ejecucion:
                 if(n1.arr[n1.ind] <= n2.arr[n2.ind]): 
                     p.arr[p.ind] = n1.arr[n1.ind]
                     p.arreglo.elms[p.ind].anot.set(text = p.arr[p.ind])
+                    p.arreglo.elms[p.ind].rect.set(facecolor  = '#FFCCE5')
                     n1.ind = n1.ind + 1
                     n1.ind_anot.set(x = n1.ind_anot.get_position()[0] + 3)
                     p.ind = p.ind + 1 
                 else: 
                     p.arr[p.ind] = n2.arr[n2.ind]
                     p.arreglo.elms[p.ind].anot.set(text = p.arr[p.ind])
+                    p.arreglo.elms[p.ind].rect.set(facecolor  = '#FFCCE5')
                     n2.ind = n2.ind + 1
                     n2.ind_anot.set(x = n2.ind_anot.get_position()[0] + 3)
                     p.ind = p.ind + 1
@@ -297,10 +318,21 @@ class Ejecucion:
         if( len(arbol.raiz.arreglo.elms) < 2 ** arbol.niveles ): 
             self.abajo_arriba()
         else: 
+            text = "Se llama recursivamente para cada mitad de los arreglos"
+            self.anot.set(text = text)
             self.arriba_abajo()
-            if(len(arbol.raiz.arreglo.elms) ==  2 ** (arbol.niveles - 1) ): 
+            if(len(arbol.raiz.arreglo.elms) ==  2 ** (arbol.niveles - 1) ):
+                #pintarlos de rosa 
+                for n in arbol.niveles_l[-1]: 
+                    for e in n.arreglo.elms: 
+                        e.rect.set(facecolor = '#FFCCE5')
                 self.inicializar_ind_nivel(len(arbol.niveles_l)-1)
                 self.nivel = arbol.niveles - 1
+                text = "Llegamos a los casos base."
+                text += "A continuacion se ejecutara la rutina de combinado sobre cada \n"
+                text += "arreglo del nivel actual hasta llegar a la raiz.\n"
+                text += "Rutina de combinado en el nivel {}".format(self.nivel-1)
+                self.anot.set(text = text)
        
     @out1.capture()
     def teclas_handler(self,event): 
@@ -323,6 +355,7 @@ class Ejecucion:
         self.config_teclas()
         self.crear_arbol_inicial()
         dibujar_arbol() 
+        self.init_anot() 
 env = Env() 
 env.vars['arbol'] = Arbol() 
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
