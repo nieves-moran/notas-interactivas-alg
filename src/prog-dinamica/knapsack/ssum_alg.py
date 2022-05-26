@@ -68,9 +68,21 @@ class Ejecucion:
     sol = [] 
     solucion = False 
     et = None 
+    ax_anot = None 
+    anot = None 
+    mouse_anot = None 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.subplots_adjust(bottom=0.3)
         plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+        self.zoom_mas() 
+        self.zoom_mas() 
+    def init_anot(self): 
+        text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
+        text += "el siguiente paso del algoritmo." 
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
     def obtener_solucion(self): 
         i = len(self.conj)
         m = env.vars['mat'] 
@@ -89,13 +101,20 @@ class Ejecucion:
             x = x + w/2
             h = r.get_height()
             y = y + h/2  
-            c = Ellipse((x,y),width = w+3,height = h,facecolor = '#EBDEF0',edgecolor = "#7D3C98" )
+            c = Ellipse((x,y),width = w+3,height = h,facecolor = '#99CCFF',edgecolor = "#7D3C98" )
             env.vars['ax'].add_patch(c)
         env.vars['ax'].relim()
         env.vars['ax'].autoscale_view()
     def siguiente_paso(self):
+        self.quitar_mouse_anot() 
+        for c in self.circs: 
+            c.set(visible = False)
         if(self.solucion): 
+            text = "El algoritmo termina. Puedes ver el conjunto solucion marcado con elipses\n"
+            text += "azules a la izquierda de la tabla."
+            self.anot.set(text = text)
             return 
+        self.circs = [] 
         m = env.vars['mat']
         i = self.i 
         if(i >=  len(self.conj)+1): 
@@ -119,6 +138,11 @@ class Ejecucion:
                 self.calculados[(i,w)].append((i-1,w))
                 self.calculados[(i,w)].append((i-1,w - self.conj[i-1]))
             m.celdas[i][w].anot.set(text="{}".format(m.celdas[i][w].valor))
+        text = "Se calculan los valores para la fila con $w_{{{}}}={}$\n".format(i,self.conj[i-1])
+        text += "Presiona alguna de las celdas recien generadas para saber como se obtuvo ese valor.\n"
+        text += "Si tienes problemas para ver la imagen puedes presionar + para hacerla\n"
+        text += "mas grande y - para hacerla mas pequena."
+        self.anot.set(text = text)
         self.i = self.i + 1    
     @out1.capture()
     def teclas_handler(self,event): 
@@ -152,7 +176,7 @@ class Ejecucion:
                 w,h = 3,3
                 cel.rect = Rectangle((x,y),width = w,height = h,facecolor = 'white',edgecolor = 'black')
                 env.vars['ax'].add_patch(cel.rect) 
-                cel.anot =  env.vars['ax'].text(x+w/2, y+h/2,"".format(i,j),fontsize = 9,ha='center', va='center') 
+                cel.anot =  env.vars['ax'].text(x+w/2, y+h/2,"".format(i,j),fontsize = 10,ha='center', va='center') 
                 mat.celdas[i][j] = cel
                 x = x + 3
             y = y - 3 
@@ -187,25 +211,63 @@ class Ejecucion:
         (u,v) = p
         x,y = env.vars['mat'].celdas[u][v].rect.get_xy() 
         x,y = x + 1.5, y + 1.5 
-        p = Circle((x,y),radius = 1.5)
+        p = Circle((x,y),radius = 2,facecolor = 'none',edgecolor = 'blue')
         return p 
+    def poner_mouse_anot(self,ps,x,y,u,v): 
+        m = env.vars['mat']
+        text = ""
+        x = x 
+        y = y - 1 
+        if(len(ps) == 1):
+            x1,y1 = ps[0]
+            text = "Solo hay un valor que\n puedes tomar en consideracion.\n"
+            text += "opt({},{}) = opt({},{})={}".format(u+1,v,x1,y1,m.celdas[x1][y1].valor) 
+        else: 
+            x1,y1 = ps[0]
+            x2,y2 = ps[1]
+            text = "opt({},{})\n".format(u+1,v) 
+            text += "max(opt({},{}),opt({},{}) + $w_{{{}}}$)=\n".format(x1,y1,x2,y2,u+1)
+            text += "max({},{}+{})=\n".format( m.celdas[x1][y1].valor,m.celdas[x2][y2].valor,self.conj[u])
+            text += "max({},{})=".format( m.celdas[x1][y1].valor,m.celdas[x2][y2].valor+self.conj[u])
+            text += "{}".format(max( m.celdas[x1][y1].valor,m.celdas[x2][y2].valor+self.conj[u]))
+        if(self.mouse_anot == None ):
+            props = dict(boxstyle='round', facecolor='#90CCFF', alpha=1) 
+            self.mouse_anot= env.vars['ax'].text(x,y,text,va='top',fontsize = 6,bbox = props)
+        else: 
+            self.mouse_anot.set(visible = True )
+            self.mouse_anot.set(text = text)
+            self.mouse_anot.set(position = (x,y))
+    def quitar_mouse_anot(self):
+        if(self.mouse_anot == None ): 
+            return 
+        else: 
+            self.mouse_anot.set(visible = False) 
     @out1.capture() 
     def mouse_click_handler(self,event): 
         #buscar en las que estan calculadas
         if(event.xdata == None or event.ydata == None): 
             return 
+        for c in self.circs: 
+            c.set(visible = False)
+        self.circs = [] 
         for (i,j),ps in self.calculados.items():
             x,y = env.vars['mat'].celdas[i][j].rect.get_xy() 
             if(x <= event.xdata and event.xdata <= x + 3 and y <= event.ydata and event.ydata <= y + 3 ): 
                 for (u,v) in ps: 
                     c = self.poner_circ((u,v))
+                    cc = self.poner_circ((i,j))
                     env.vars['ax'].add_patch(c)
-                    self.circs.append(c) 
+                    env.vars['ax'].add_patch(cc)
+                    self.circs.append(c)
+                    self.circs.append(cc)
+                self.poner_mouse_anot(ps,event.xdata,event.ydata,u,v)
+              
     @out1.capture() 
     def mouse_release_handler(self,event):
-        for c in self.circs: 
-            c.set(visible = False)
-        self.circs = [] 
+        return 
+        #for c in self.circs: 
+         #   c.set(visible = False)
+        #self.circs = [] 
     def config_mouse(self): 
         env.vars['cid_mc'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.mouse_click_handler)
         env.vars['cid_mr'] = env.vars['fig'].canvas.mpl_connect('button_release_event', self.mouse_release_handler)
@@ -225,6 +287,7 @@ class Ejecucion:
         self.poner_ceros()  
         self.poner_etiquetas()
         self.config_mouse() 
+        self.init_anot() 
 
 env = Env() 
 env.vars['mat'] = None
