@@ -71,6 +71,8 @@ class Vertice:
     valor =None
     #una tabla para asociar la letra con el vertice hijo 
     alf = None 
+    ax_anot = None 
+    anot = None 
     def __init__(self): 
         self.hijos = []
         self.alf = [-1 for i in range(0,128)] 
@@ -158,11 +160,11 @@ def dibujar_arbol():
     env.vars['ax'].relim()
     env.vars['ax'].autoscale_view()
 class Ejecucion: 
-    entrada_anot = None 
     nodo_act = 0 
     ind = 0
     cad_entrada = ""
     ars_color = [] 
+    nodos_color = [] 
     def crear_arbol(self,ars,n):
         arbol = env.vars['arbol']
         for i in range(0,n): 
@@ -185,22 +187,40 @@ class Ejecucion:
         for (v,u)  in self.ars_color:
             arbol.aristas[(v,u)].linea.set(color = 'red')
             arbol.aristas[(v,u)].linea.set(linewidth = 3)
+    def colorear_nodos(self): 
+        for n in self.nodos_color: 
+            n.circ.set(facecolor = 'red')
     def siguiente_paso(self):       
         arbol = env.vars['arbol']
         if(self.ind == len(self.cad_entrada)): 
-            self.config_mouse()
             self.config_teclas_inicial() 
             self.nodo_act = arbol.raiz 
             self.ind = 0 
             self.cad_entrada = ""
             self.ars_color = [] 
+            self.nodos_color = [arbol.raiz] 
+            text = "Escribe alguna palabra en el cuadro de texto bajo la imagen.\n"
+            text += "Cuando estes listo presiona el boton."
+            self.anot.set(text =text)
+            #volver a poner los botones 
+            t = widgets.Text(
+                        value='',
+                        description='Cadena:',
+                        disabled=False
+                        )
+            b = widgets.Button(description="Listo")
+            b.on_click(self.handler_boton)
+            self.botones.children = [t,b]
             return
         if(self.nodo_act.alf[ord(self.cad_entrada[self.ind])] != -1): 
             #print("esta en el arbol")
             self.ars_color.append((self.nodo_act,self.nodo_act.alf[ord(self.cad_entrada[self.ind])]))
             self.nodo_act = self.nodo_act.alf[ord(self.cad_entrada[self.ind])]
-            #pintarlo de rojo 
-            #print("agrega a {}".format(self.nodo_act.alf[ord(self.cad_entrada[self.ind])])))
+            text = "El nodo actual tiene una arista etiquetada con {}.\n".format(self.cad_entrada[self.ind])
+            text += "Se toma la arista."
+            self.anot.set(text =text)
+            self.nodos_color.append(self.nodo_act)
+
         else: 
             #print("no esta en el arbol")
             nuevo = Vertice() 
@@ -219,8 +239,13 @@ class Ejecucion:
             #info del arbol 
             arbol.n_nodos = arbol.n_nodos + 1
             self.nodo_act = nuevo
+            text = "El nodo actual no tiene una arista etiquetada con {}.\n".format(self.cad_entrada[self.ind])
+            text += "Se crea un nuevo nodo. La arista se etiqueta con {} y se toma la arista".format(self.cad_entrada[self.ind])
+            self.anot.set(text =text)
+            self.nodos_color.append(nuevo)
         dibujar_arbol()
         self.colorear_aristas()
+        self.colorear_nodos() 
         self.ind = self.ind + 1    
         #eliminar arbol 
     @out1.capture() 
@@ -232,40 +257,23 @@ class Ejecucion:
         elif(event.key == '-'): 
             self.zoom_menos() 
     def config_ejecucion(self): 
-        env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t']) 
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.handler_teclas_ejecucion)
-    @out1.capture() 
-    def handler_teclas_entrada(self,event): 
-        if(event.key == 'enter'): 
-            self.cad_entrada = self.cad_entrada + "$"   
-            self.config_ejecucion() 
-        elif(event.key.isalpha()): 
-            self.cad_entrada = self.cad_entrada + event.key
-            self.entrada_anot.anota("Entrada:" + self.cad_entrada)
-        elif(event.key == '+'): 
-            self.zoom_mas() 
-        elif(event.key == '-'): 
-            self.zoom_menos() 
-    def config_teclas_entrada(self): 
-        #conectar teclas 
-        env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t']) 
-        env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_m']) 
-        env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.handler_teclas_entrada)
 
-    @out1.capture()
-    def handler_mouse(self,event):  
-        if(event.xdata == None or event.ydata == None): 
-            return 
-        arbol = env.vars['arbol']
-        x,y = arbol.vertices[0].circ.get_center() 
-        if((x - event.xdata)**2 + (y - event.ydata)**2 <= env.vars['rad']):
-            self.config_teclas_entrada()  
-    def config_mouse(self): 
-        env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.handler_mouse)
-                
+    def init_anot(self): 
+        text= "Escribe alguna palabra en cuadro de texto bajo la imagen.\n" 
+        text += "Cuando estes listo presiona el boton"
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
+    
+            
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
-        plt.axis('off')
+        plt.subplots_adjust(bottom=0.3)
+        plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+        self.zoom_mas() 
+        self.zoom_mas() 
+        
     def config_teclas_inicial(self): 
         if(env.vars['cid_t'] != None): 
             env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t']) 
@@ -289,18 +297,40 @@ class Ejecucion:
         plt.rcParams["keymap.xscale"] = []
         plt.rcParams["keymap.yscale"] = []
         plt.rcParams["keymap.quit"] = [] 
+    def handler_boton(self,event): 
+        #conectar las teclas 
+        self.cad_entrada = self.botones.children[0].value + "$"
+        self.config_ejecucion() 
+        self.botones.children = [] 
+        text = "Haz click en la imagen, cada vez que presiones n se ejecutara\n"
+        text += "un paso mas del algortmo.\n"
+        text += "Para hacer mas grande/chica la imagen presiona +/-.\n"
+        text += "El nodo actual es la raiz, coloreada en rojo"
+        self.nodos_color = [env.vars['arbol'].raiz]
+        dibujar_arbol() 
+        self.colorear_nodos() 
+        self.anot.set(text = text)
+        return 
+    def poner_botones(self): 
+        t = widgets.Text(
+                        value='',
+                        description='Cadena:',
+                        disabled=False
+                        )
+        b = widgets.Button(description="Listo")
+        b.on_click(self.handler_boton)
+        self.botones = widgets.VBox([t,b])
+        display(self.botones)
     def __init__(self): 
-        print("inicio")
-        ars = {0:[('a',1),('b',2),('d',8)],1:[('a',3)],2:[('b',4),('c',5),('x',6),('m',7)]}
-        #nodo inicial raiz 
         self.nodo_act = env.vars['arbol'].raiz
         #poner anotacion 
-        self.entrada_anot  = Anotacion(0,1.5*env.vars['rad'],"Entrada:")  
         self.config_imagen() 
-        self.config_mouse() 
         self.desactivar_letras_gui() 
         self.config_teclas_inicial() 
+        self.nodos_color = [env.vars['arbol'].raiz]
         dibujar_arbol() 
+        self.poner_botones() 
+        self.init_anot() 
 env = Env() 
 env.vars['arbol'] = Arbol() 
 env.vars['fig'],env.vars['ax'] = plt.subplots() 
