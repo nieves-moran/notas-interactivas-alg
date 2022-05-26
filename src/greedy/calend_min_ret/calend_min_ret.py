@@ -48,6 +48,8 @@ class Ejecucion:
     ult_tiempo = 0 
     anots = dict() 
     linea = None
+    ax_anot = None 
+    anot = None 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
         plt.subplots_adjust(bottom=0.3)
@@ -55,6 +57,11 @@ class Ejecucion:
         self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
         plt.axis("off")
         env.vars['ax'].set(yticks=[]) 
+    def init_anot(self): 
+        text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
+        text += "el siguiente paso del algoritmo.\n"
+        text += "Para hacer la imagen mas grande/chica presiona +/-." 
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left",fontsize = 7)
     def ajustar(self): 
         env.vars['ax'].relim()
         env.vars['ax'].autoscale_view()
@@ -69,8 +76,8 @@ class Ejecucion:
         for [t,d] in peticiones:
             r = Rectangle((x,y),width = t,height = 1,facecolor = 'white',edgecolor = 'black')
             anot =  env.vars['ax'].text(x +t/2, y + 0.5,"$t_{{ {} }}={}$".format(j,t),fontsize = 9,va = 'center',ha = 'center')
-            rt = Rectangle((d,y),width = 0.1,height = 1)
-            r_anot =  env.vars['ax'].text(d +1, y+0.5,"$d_{{ {} }}={}$".format(j,d),fontsize = 9,va = 'center')
+            rt = Rectangle((d,y),width = 0.1,height = 1,color = 'black')
+            r_anot =  env.vars['ax'].text(d, y+1.5,"$d_{{ {} }}={}$".format(j,d),fontsize = 9,va = 'center',ha = 'center')
             env.vars['ax'].add_patch(r)
             env.vars['ax'].add_patch(rt) 
             p = Peticion() 
@@ -114,16 +121,22 @@ class Ejecucion:
             p.ret = [p.ret[0],y]
             p.ret_rect.set(xy = p.ret)
             p.anot.set(x= p.p1[0] + p.rect.get_width()/2)  
-            p.anot.set(y = p.p1[1] + 0.5)
-            p.ret_anot.set(y  = p.ret_rect.get_xy()[1] + 0.5) 
-            p.ret_anot.set(x  = p.ret_rect.get_xy()[0] + 1) 
+            p.anot.set(y = p.p1[1] + 1.5)
+            p.ret_anot.set(y  = p.ret_rect.get_xy()[1] + 1.5) 
+            p.ret_anot.set(x  = p.ret_rect.get_xy()[0] ) 
             y = y + 3 
         env.vars['ax'].relim()
         env.vars['ax'].autoscale_view()
-    def cambiar_anotaciones(self,trabajo,retraso,retraso_max): 
-        self.anots['linea1'].set(text = "-Se calendarizo el trabajo $i_{{{}}}$".format(trabajo))
-        self.anots['linea2'].set(text = "-El retraso del trabajo es {}".format(retraso))
-        self.anots['linea3'].set(text = "-El retraso maximo en rojo es {}".format(retraso_max))
+    def poner_lhor(self,xmin,xmax,y): 
+        p = Path([(xmin,y),(xmax,y)])
+        l = PathPatch(p)
+        env.vars['ax'].add_patch(l)     
+        return l 
+    def poner_lver(self,ymin,ymax,x): 
+        p = Path([(x,ymin),(x,ymax)])
+        l = PathPatch(p,linestyle = '--',color = 'lightgray')
+        env.vars['ax'].add_patch(l)     
+        return l 
     def siguiente_paso(self):
         if(self.ind == len(self.peticiones.elms) ): 
             return 
@@ -134,6 +147,7 @@ class Ejecucion:
             sig_pet = self.peticiones.elms[self.ind]
             #es 0 porque ahi (en esa y) estan los que vamos agregando
             sig_pet.rect.set(xy = (self.ult_tiempo,0))
+            sig_pet.rect.set(facecolor = '#B5C5DF')
             sig_pet.p1 = (self.ult_tiempo,0)
             sig_pet.p2 = (sig_pet.p1[0]+sig_pet.pet[0],1)
             sig_pet.anot.set(x = sig_pet.p1[0] + sig_pet.rect.get_width()/2)
@@ -156,8 +170,21 @@ class Ejecucion:
                         self.retraso.anot.set(x = sig_pet.ret_rect.get_xy()[0] + self.retraso.valor/2)
                         self.retraso.anot.set(text = "${}$".format(self.retraso.valor))
                         self.retraso.linea.set(path = Path([(sig_pet.ret_rect.get_xy()[0],2),(self.ult_tiempo,2)]))
+                xr,yr = sig_pet.ret_rect.get_xy()
+                #pone las dos lineas grises
+                self.poner_lhor(xr,self.ult_tiempo,yr)
+                self.poner_lver(1,yr,self.ult_tiempo)
+                self.poner_lver(1,yr,xr)
+                #pone la anotacion del peso del retraso 
+                env.vars['ax'].text((xr + self.ult_tiempo) /2, yr-1,"${}$".format(self.ult_tiempo - sig_pet.ret_rect.get_xy()[0]),va='center',ha='center',color = 'red')
             retraso_max = max(0,self.retraso.valor if self.retraso != None else 0)
-            self.cambiar_anotaciones(trabajo,retraso,retraso_max) 
+            text = "Se calendarizo el trabajo $i_{{{}}}$\n".format(trabajo)
+            text += "El retraso del trabajo es {}\n".format(retraso)
+            text += "El retraso maximo en rojo es {}\n".format(retraso_max)
+            text += "Si las figuras se hacen muy pequenas, haz mas \n" 
+            text += "grande la figura presionando +.\n"
+            text += "Para hacerla mas chica de nuevo presiona -."
+            self.anot.set(text = text)
             self.actualizar_linea(self.ult_tiempo)
         env.vars['ax'].relim()
         env.vars['ax'].autoscale_view()
@@ -195,6 +222,7 @@ class Ejecucion:
         self.config_teclas()
         self.dibujar_peticiones(self.crear_peticiones_aleatorias())
         self.poner_anotaciones()   
+        self.init_anot() 
 
 env = Env() 
 env.vars['fig'],env.vars['ax'] = plt.subplots()
