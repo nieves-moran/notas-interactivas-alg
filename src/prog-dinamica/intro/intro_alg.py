@@ -55,9 +55,22 @@ class Ejecucion:
     coloreados = [] 
     solucion = [] 
     terminar = False 
+    flecha = 0 
+    #es el dialogo sobre las flechas
+    anot_dial = None 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.subplots_adjust(bottom=0.3)
         plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+        self.zoom_mas() 
+        self.zoom_mas() 
+    def init_anot(self): 
+        text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
+        text += "el siguiente paso del algoritmo.\n"
+        text += "Presiona +/- para hacer mas grande/chica la imagen." 
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
        
     def fun_p(self,i): 
         for j in range(i-2,-1,-1): 
@@ -65,22 +78,17 @@ class Ejecucion:
                 return j + 1 
         return 0 
   
-    def poner_flechas(self,s,d1,d2): 
+    def poner_flechas(self,s,d): 
         for f in self.flechas: 
             f.set(visible = False)
         sx,sy = self.arr_dp.elms[s].rect.get_xy() 
-        d1x,d1y = self.arr_dp.elms[d1].rect.get_xy()
-        d2x,d2y = self.arr_dp.elms[d2].rect.get_xy()
+        dx,dy = self.arr_dp.elms[d].rect.get_xy()
         sx,sy  = sx + 1.5 , sy + 3 
-        d1x,d1y = d1x + 1.5 , d1y + 3 
-        d2x,d2y = d2x + 1.5 , d2y + 3 
-        p1 = FancyArrowPatch((sx,sy),(d1x,d1y),connectionstyle = "arc3, rad = 0.8",color = 'black') 
-        p1.set_arrowstyle("fancy", head_length=5,head_width = 5)
-        env.vars['ax'].add_patch(p1)
-        p2 = FancyArrowPatch((sx,sy),(d2x,d2y),connectionstyle = "arc3, rad = 0.8",color = 'black') 
-        p2.set_arrowstyle("fancy", head_length=5,head_width = 5)
-        env.vars['ax'].add_patch(p2)
-        self.flechas = [p1,p2]
+        dx,dy = dx + 1.5 , dy + 3 
+        p = FancyArrowPatch((sx,sy),(dx,dy),connectionstyle = "arc3, rad = 0.8",color = 'black') 
+        p.set_arrowstyle("fancy", head_length=5,head_width = 5)
+        env.vars['ax'].add_patch(p)
+        self.flechas = [p]
 
     def pintar_intervalos(self,i,p):
         #limpiar previos 
@@ -114,19 +122,58 @@ class Ejecucion:
             self.obtener_solucion() 
             self.colorear_solucion() 
             self.terminar = True
+            text = "Termina el algoritmo. La solucion es {}\n".format(self.arr_dp.elms[len(self.arr_dp.elms)-1].valor) 
+            text += "La suma de los valores de los intervalos pintados en azul."
+            self.anot.set(text = text)
+            self.anot_dial.set(visible = False)
+            #quitar la flechas
+            for f in self.flechas: 
+                f.set(visible = False)
             return 
         i = self.ind 
         p = self.fun_p(i)
-        self.poner_flechas(i,i-1,p)
-        self.pintar_intervalos(i,p) 
-        if(self.arr_dp.elms[p].valor +self.intervalos.elms[i-1].valor >= self.arr_dp.elms[i-1].valor): 
-            self.arr_dp.elms[i].valor = self.arr_dp.elms[p].valor +self.intervalos.elms[i-1].valor
-            self.arr_dp.elms[i].ant = p 
-        else: 
+        #la primera posibilidad 
+        if(self.flecha == 0): 
+            self.poner_flechas(i,i-1)
+            self.flecha = (self.flecha + 1) % 2 
             self.arr_dp.elms[i].valor = self.arr_dp.elms[i-1].valor
             self.arr_dp.elms[i].ant = -1
-        self.arr_dp.elms[i].anot.set(text = self.arr_dp.elms[i].valor)
-        self.ind = self.ind + 1 
+            self.arr_dp.elms[i].anot.set(text = self.arr_dp.elms[i].valor)
+            text = "La primera posibilidad a considerar" 
+            text += " es OPT({})={}.".format(i,self.arr_dp.elms[i-1].valor)
+            self.anot_dial.set(visible = True)
+            self.anot_dial.set(text =  text)
+            x,y =  self.arr_dp.elms[i].rect.get_xy() 
+            y = y + 4 
+            x = x + 4 
+            self.anot_dial.set(position = (x,y))
+        else: 
+            #la segunda posibilidad y ultima, por eso se incrementa el indice 
+            self.poner_flechas(i,p)
+            self.flecha = (self.flecha + 1) % 2 
+            self.pintar_intervalos(i,p) 
+            if(self.arr_dp.elms[p].valor +self.intervalos.elms[i-1].valor >= self.arr_dp.elms[i-1].valor): 
+                self.arr_dp.elms[i].valor = self.arr_dp.elms[p].valor +self.intervalos.elms[i-1].valor
+                self.arr_dp.elms[i].ant = p 
+                self.arr_dp.elms[i].anot.set(text = self.arr_dp.elms[i].valor)
+                text = "Se considera a OPT({}) + {} = {} + {} = {} y es mejor \n".format(p,self.intervalos.elms[i-1].valor,self.arr_dp.elms[p].valor,self.intervalos.elms[i-1].valor,self.arr_dp.elms[p].valor +self.intervalos.elms[i-1].valor)
+                text += "que el valor {} que se tenia ".format(self.arr_dp.elms[i-1].valor)
+                self.anot_dial.set(visible = True)
+                self.anot_dial.set(text =  text)
+                x,y =  self.arr_dp.elms[i].rect.get_xy() 
+                y = y + 4 
+                x = x + 4 
+                self.anot_dial.set(position = (x,y))
+            else: 
+                text = "Se considera a OPT({}) + {} = {} + {} = {} pero es mejor \n".format(p,self.intervalos.elms[i-1].valor,self.arr_dp.elms[p].valor,self.intervalos.elms[i-1].valor,self.arr_dp.elms[p].valor +self.intervalos.elms[i-1].valor)
+                text += "el valor {} que se tiene ".format(self.arr_dp.elms[i-1].valor)
+                self.anot_dial.set(visible = True)
+                self.anot_dial.set(text =  text)
+                x,y =  self.arr_dp.elms[i].rect.get_xy() 
+                y = y + 4 
+                x = x + 4 
+                self.anot_dial.set(position = (x,y))
+            self.ind = self.ind + 1 
 
     @out1.capture()
     def teclas_handler(self,event): 
@@ -198,12 +245,17 @@ class Ejecucion:
         self.arr_dp.elms[0].anot.set(text = "0")
         env.vars['ax'].relim()
         env.vars['ax'].autoscale_view()
+    def init_dial(self): 
+        props = dict(boxstyle='round', facecolor='#48C9B0', alpha=1 ) 
+        self.anot_dial = env.vars['ax'].text(0,0,"",va='top',fontsize = 8,bbox = props,visible = False)
     def __init__(self): 
         self.config_imagen()
         self.config_teclas()
         self.crear_estr_intervalos(self.crear_intervalos_aleatorios())
         self.dibujar_intervalos() 
         self.dibujar_arreglo_dp()
+        self.init_anot() 
+        self.init_dial()
 
 env = Env() 
 env.vars['fig'],env.vars['ax'] = plt.subplots()
