@@ -36,6 +36,11 @@ def punto_medio(x1,y1,x2,y2,s,fra):
     xp = xp + (x1 if x1 < x2 else x2) 
     yp = yp + (y1 if x1 < x2 else y2 )
     return (xp,yp)
+def inter_points(rad,x1,y1,x2,y2): 
+    phi = math.atan2(y2-y1, x2-x1)
+    x = x1 + rad * math.cos(phi)
+    y = y1 + rad * math.sin(phi)
+    return (x,y)
 
 class Matriz: 
     celdas = None
@@ -64,41 +69,91 @@ class Ejecucion:
     ind_j = 0 
     n = None 
     m = None 
+    flechas = [] 
+    calculados = dict() 
+    #un par que dice cual es el que se esta explicando 
+    act_exp = None 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
         plt.axis('off')
-
+    
     def siguiente_paso(self):
         #print('ejecuta el siguiente paso')
+        for f in self.flechas: 
+            f.set(visible = False)
         i = self.ind_i 
-        j = self.ind_j
-        if(i == self.n or j == self.m): 
+        if(i == self.n): 
             return 
         mat = env.vars['mat']
-        M = 0 
-        x,y = mat.celdas[i][j].rect.get_xy() 
-        flecha_ant = None 
-        if(self.cad1[i] == self.cad2[j]): 
-            M = 1 
-            if (0 <= i - 1 and 0 <= j -1): 
-                fecha_ant = plt.arrow(x+1, y+2, -1, 1,width = 0.2,head_length = 1,facecolor = 'white' ) 
-                M = M + mat.celdas[i-1][j-1].valor
-        if(0 <= i - 1 and mat.celdas[i-1][j].valor > M): 
-            if(flecha_ant != None): 
-                flecha_ant.set(visible = False)  
-            flecha_ant = plt.arrow(x+1.5, y+2, 0, 1,width = 0.2,head_length = 1,facecolor = 'white' ) 
-            M = mat.celdas[i-1][j].valor
-        if( 0 <= j - 1 and mat.celdas[i][j-1].valor > M ):
-            if(flecha_ant != None): 
-                flecha_ant.set(visible = False)  
-            plt.arrow(x+1, y+2, -1, 0,width = 0.2,head_length = 1,facecolor = 'white' ) 
-            M = mat.celdas[i][j-1].valor    
-        mat.celdas[i][j].valor = M 
-        mat.celdas[i][j].anot.set(text = M)
-        self.ind_j = self.ind_j + 1
-        if(self.ind_j == self.m): 
-            self.ind_j = 0 
-            self.ind_i = self.ind_i + 1 
+        for j in range(0,self.m): 
+            M = 0 
+            x,y = mat.celdas[i][j].rect.get_xy() 
+            if(self.cad1[i] == self.cad2[j]): 
+                M = 1 
+                if (0 <= i - 1 and 0 <= j -1): 
+                    M = M + mat.celdas[i-1][j-1].valor
+            if(0 <= i - 1 and mat.celdas[i-1][j].valor > M): 
+                M = mat.celdas[i-1][j].valor
+            if( 0 <= j - 1 and mat.celdas[i][j-1].valor > M ):              
+                M = mat.celdas[i][j-1].valor    
+            mat.celdas[i][j].valor = M 
+            mat.celdas[i][j].anot.set(text = M)
+            self.calculados[(i,j)] = []
+        self.ind_i += 1 
+    def agregar_flecha(self,i,j,u,v):
+        mat = env.vars['mat']
+        x1,y1 = mat.celdas[i][j].rect.get_xy() 
+        x1 += 1.5
+        y1 += 1.5 
+        x2,y2 = mat.celdas[u][v].rect.get_xy()
+        x2 += 1.5
+        y2 += 1.5
+        (x1,y1),(x2,y2) = inter_points(0.5,x1,y1,x2,y2),inter_points(0.5,x2,y2,x1,y1) 
+        return env.vars['ax'].arrow(x1,y1, x2-x1, y2-y1,width = 0.2,head_length = 1,facecolor = 'white',length_includes_head = True) 
+    
+    def explicacion_sig_paso(self):
+        if(not self.calculados[self.act_exp]): 
+            env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t']) 
+            env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)   
+            env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.mouse_click_handler)
+            #limpiar las flechas y el cuadro de texto 
+            return  
+        #toma algun vecino 
+        i,j = self.act_exp 
+        u,v = self.calculados[self.act_exp][0] 
+        self.calculados[self.act_exp].pop(0)
+        f = self.agregar_flecha(i,j,u,v) 
+        self.flechas.append(f)
+    @out1.capture() 
+    def explicacion_handler(self,event): 
+        if(event.key == 'n'): 
+            self.explicacion_sig_paso() 
+        if(event.key == '-'):
+            self.zoom_menos()  
+        elif(event.key == '+'): 
+            self.zoom_mas() 
+    @out1.capture() 
+    def mouse_click_handler(self,event): 
+        #buscar en las que estan calculadas
+        if(event.xdata == None or event.ydata == None): 
+            return 
+        for (i,j),ps in self.calculados.items():
+            x,y = env.vars['mat'].celdas[i][j].rect.get_xy() 
+            if(x <= event.xdata and event.xdata <= x + 3 and y <= event.ydata and event.ydata <= y + 3 ): 
+                print("estoy en {}".format((i,j)))
+                self.act_exp = (i,j)
+                #calculando los vecinos
+                vec = [] 
+                if( 0 <= i - 1 ): 
+                    vec.append((i-1,j))
+                if(0 <= j -1 ): 
+                    vec.append((i,j-1))
+                if(0 <= i -1 and 0 <= j - 1 ): 
+                    vec.append((i-1,j-1))
+                self.calculados[(i,j)] = vec 
+                env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t']) 
+                env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.explicacion_handler)
+                env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_m']) 
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -163,6 +218,7 @@ class Ejecucion:
         self.config_teclas()
         self.crear_matriz()
         self.dibujar_matriz() 
+        env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.mouse_click_handler)
         self.poner_etiquetas()
 
 env = Env() 
