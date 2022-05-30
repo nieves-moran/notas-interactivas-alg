@@ -47,6 +47,7 @@ class Matriz:
     def __init__(self,n,m): 
         self.celdas = [[0 for j in range(0,m)] for i in range(0,n)] 
 class Celda: 
+    ant = None
     valor = None 
     rect = None
     anot = None
@@ -67,7 +68,9 @@ class Ejecucion:
     cad2 = ""
     ind_i = 0 
     ind_j = 0 
+    #n son los renglones 
     n = None 
+    #m las columnas 
     m = None 
     flechas = [] 
     calculados = dict() 
@@ -75,14 +78,70 @@ class Ejecucion:
     valor_act = 0 
     act_exp = None 
     anot_dial = None 
+    sol = []
+    ind_sol1 = [] 
+    ind_sol2 = []
+    termina = False 
+    def calc_sol(self): 
+        par_act = (self.n-1,self.m-1)
+        mat = env.vars['mat']
+        while( mat.celdas[par_act[0]][par_act[1]].ant != None ):
+            i,j =  par_act
+            u,v = mat.celdas[i][j].ant 
+            if(u == i-1 and v == j-1 ): 
+                self.ind_sol1.append(i)
+                self.ind_sol2.append(j)
+            self.agregar_flecha(i,j,u,v)
+            self.sol.append(par_act)
+            par_act = mat.celdas[i][j].ant 
+        i,j = par_act 
+        if(self.cad1[i] == self.cad2[j]): 
+            self.ind_sol1.append(i)
+            self.ind_sol2.append(j)
     
+    def poner_circ_sol(self): 
+        mat = env.vars['mat']
+        for i in self.ind_sol1: 
+            x,y = mat.celdas[i][0].rect.get_xy()
+            x,y = x -1.5 ,y + 1.5 
+            c = Circle((x,y),radius = 1, color = '#FF00FF',alpha = .5)
+            env.vars['ax'].add_patch(c)
+        for i in self.ind_sol2: 
+            x,y = mat.celdas[0][i].rect.get_xy()
+            x,y = x + 1.5 , y + 4.5 
+            c = Circle((x,y),radius = 1, color = '#FF00FF',alpha = 0.5)
+            env.vars['ax'].add_patch(c)
+    @out1.capture() 
+    def mouse_sol_handler(self,event): 
+        xe,ye = event.xdata,event.ydata 
+        if(xe == None or ye == None): 
+            return 
+        mat= env.vars['mat']
+        x,y = mat.celdas[self.n-1][self.m-1].rect.get_xy()
+        if(x <= xe <= x + 3 and  y <= ye <= y + 3): 
+            self.calc_sol() 
+            self.poner_circ_sol()
+            text = ""
+            text += "Las flechas se dirigen hacia la mejor opcion para cada celda.\n"
+            text += "La solucion se compone de los caracteres que son iguales en esta .\n"
+            text += "secuencia de flechas, marcados en rosa.\n"
+            text += "Recuerda que puedes presionar + para hacer mas grande la imagen."
+            self.anot.set(text = text)
+            env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_m']) 
     def siguiente_paso(self):
         i = self.ind_i 
+        if(self.termina ): 
+            return 
         if(i == self.n): 
             text = "El algoritmo termina."
-            text += "La respuesta esta en OPT({},{})".format(len(self.cad1)-1,len(self.cad2)-1)
+            text += "La respuesta esta en OPT({},{})\n".format(len(self.cad1)-1,len(self.cad2)-1)
+            text += "Presiona la casilla OPT({},{}) para calcular la respuesta".format(len(self.cad1)-1,len(self.cad2)-1)
             self.anot.set(text= text)
             env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_m']) 
+            env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.mouse_sol_handler)
+            env.vars['mat'].celdas[self.n-1][self.m-1].rect.set(facecolor = '#FF00FF')
+            env.vars['mat'].celdas[self.n-1][self.m-1].rect.set(alpha = .5)
+            self.termina = True 
             return 
         mat = env.vars['mat']
         for j in range(0,self.m): 
@@ -92,10 +151,13 @@ class Ejecucion:
                 M = 1 
                 if (0 <= i - 1 and 0 <= j -1): 
                     M = M + mat.celdas[i-1][j-1].valor
+                    mat.celdas[i][j].ant = ((i-1,j-1))
             if(0 <= i - 1 and mat.celdas[i-1][j].valor > M): 
                 M = mat.celdas[i-1][j].valor
+                mat.celdas[i][j].ant = ((i-1,j))
             if( 0 <= j - 1 and mat.celdas[i][j-1].valor > M ):              
                 M = mat.celdas[i][j-1].valor    
+                mat.celdas[i][j].ant = ((i,j-1))
             mat.celdas[i][j].valor = M 
             mat.celdas[i][j].anot.set(text = M)
             self.calculados[(i,j)] = []
@@ -256,9 +318,15 @@ class Ejecucion:
         env.vars['fig'].set_size_inches(x-1,y-1)
     def config_teclas(self): 
         env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)
+    def generar_cadenas(self): 
+        #que solo tome de un set de caracteres 
+        letr = ['a','b','c','d','e']
+        for i in range(0,random.randint(5,10)): 
+            self.cad1 = self.cad1 + letr[random.randint(0,len(letr)-1)]
+        for i in range(0,random.randint(5,10)): 
+            self.cad2 = self.cad2 + letr[random.randint(0,len(letr)-1)]
     def crear_matriz(self): 
-        self.cad1 = "ababccac"
-        self.cad2 = "ababccabac"
+        self.generar_cadenas() 
         self.n = len(self.cad1)
         self.m = len(self.cad2)
         env.vars['mat'] = Matriz(self.n,self.m)
