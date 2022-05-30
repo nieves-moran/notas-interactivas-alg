@@ -72,17 +72,17 @@ class Ejecucion:
     flechas = [] 
     calculados = dict() 
     #un par que dice cual es el que se esta explicando 
+    valor_act = 0 
     act_exp = None 
-    def config_imagen(self): 
-        plt.gca().set_aspect('equal', adjustable='box')
-        plt.axis('off')
+    anot_dial = None 
     
     def siguiente_paso(self):
-        #print('ejecuta el siguiente paso')
-        for f in self.flechas: 
-            f.set(visible = False)
         i = self.ind_i 
         if(i == self.n): 
+            text = "El algoritmo termina."
+            text += "La respuesta esta en OPT({},{})".format(len(self.cad1)-1,len(self.cad2)-1)
+            self.anot.set(text= text)
+            env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_m']) 
             return 
         mat = env.vars['mat']
         for j in range(0,self.m): 
@@ -110,20 +110,89 @@ class Ejecucion:
         y2 += 1.5
         (x1,y1),(x2,y2) = inter_points(0.5,x1,y1,x2,y2),inter_points(0.5,x2,y2,x1,y1) 
         return env.vars['ax'].arrow(x1,y1, x2-x1, y2-y1,width = 0.2,head_length = 1,facecolor = 'white',length_includes_head = True) 
-    
+    #caso diagonal
+    def caso_diag(self,i,j,u,v):
+        text = "" 
+        mat = env.vars['mat']
+        if(self.cad1[i] == self.cad2[j]):
+            if(self.valor_act <= 1 + mat.celdas[i-1][j-1].valor): 
+                self.valor_act = 1 + mat.celdas[i-1][j-1].valor
+                text += "1 + OPT({},{}) es\n".format(u,v)
+                text += "mejor que el actual\n"
+                text += "OPT({},{})={}".format(i,j,self.valor_act) 
+            else: 
+                text += "1 + OPT({},{}) no es\n".format(u,v)
+                text += "mejor que el actual\n"
+                text += "OPT({},{})={}".format(i,j,self.valor_act)
+        else:  
+            text += "Ya que ${}\\neq {}$\n".format(self.cad1[i],self.cad2[j])
+            text += "no podemos considerar\n"
+            text += "a OPT({},{})\n".format(u,v)
+            text += "para calcular a OPT({},{})".format(i,j)
+        mat.celdas[i][j].anot.set(text = self.valor_act)
+        f = self.agregar_flecha(i,j,u,v) 
+        self.flechas.append(f)
+        self.anot_dial.set(text = text)
+    #caso hacia la izquierda
+    def caso_izq(self,i,j,u,v): 
+        mat = env.vars['mat']
+        text = ""
+        if(self.valor_act <= mat.celdas[i][j-1].valor): 
+            self.valor_act = mat.celdas[i][j-1].valor
+            text += "El valor de OPT({},{}) es\n".format(u,v)
+            text += "mejor o igual que el actual\n"
+            text += "OPT({},{})={}".format(i,j,self.valor_act) 
+        else: 
+            text += "El valor de OPT({},{}) no es\n".format(u,v)
+            text += "mejor que el actual\n"
+            text += "OPT({},{})={}".format(i,j,self.valor_act) 
+        mat.celdas[i][j].anot.set(text = self.valor_act)
+        f = self.agregar_flecha(i,j,u,v) 
+        self.flechas.append(f)
+        self.anot_dial.set(text = text)
+    #caso hacia arriba 
+    def caso_arr(self,i,j,u,v): 
+        mat = env.vars['mat']
+        text = ""
+        if( self.valor_act <= mat.celdas[i-1][j].valor): 
+            self.valor_act = mat.celdas[i-1][j].valor
+            text += "El valor de OPT({},{}) es\n".format(u,v) 
+            text += "mejor o igual que el actual\n"
+            text += "OPT({},{})={}".format(i,j,self.valor_act) 
+        else: 
+            text += "El valor de OPT({},{}) no es\n".format(u,v)
+            text += "mejor que el actual\n"
+            text += "OPT({},{})={}".format(i,j,self.valor_act) 
+        mat.celdas[i][j].anot.set(text = self.valor_act)
+        f = self.agregar_flecha(i,j,u,v) 
+        self.flechas.append(f)
+        self.anot_dial.set(text = text)
     def explicacion_sig_paso(self):
         if(not self.calculados[self.act_exp]): 
             env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t']) 
             env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)   
             env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.mouse_click_handler)
             #limpiar las flechas y el cuadro de texto 
+            text= "Haz click en la imagen, cada vez que presiones n calcularan \n"
+            text += "los valores para la siguiente linea. Una vez calculados,\n"
+            text += "puedes hacer click en las celdas para saber como fueron calculados."
+            self.anot.set(text = text) 
+            for f in self.flechas: 
+                f.set(visible = False)
+            self.anot_dial.set(visible = False)
             return  
-        #toma algun vecino 
+        #toma algun vecino  
         i,j = self.act_exp 
         u,v = self.calculados[self.act_exp][0] 
         self.calculados[self.act_exp].pop(0)
-        f = self.agregar_flecha(i,j,u,v) 
-        self.flechas.append(f)
+        #si es diagonal 
+        if(u == i -1 and v == j -1):
+            self.caso_diag(i,j,u,v)
+        elif(u == i -1 ): 
+            self.caso_arr(i,j,u,v) 
+        else :
+            self.caso_izq(i,j,u,v) 
+      
     @out1.capture() 
     def explicacion_handler(self,event): 
         if(event.key == 'n'): 
@@ -140,20 +209,37 @@ class Ejecucion:
         for (i,j),ps in self.calculados.items():
             x,y = env.vars['mat'].celdas[i][j].rect.get_xy() 
             if(x <= event.xdata and event.xdata <= x + 3 and y <= event.ydata and event.ydata <= y + 3 ): 
-                print("estoy en {}".format((i,j)))
                 self.act_exp = (i,j)
                 #calculando los vecinos
-                vec = [] 
-                if( 0 <= i - 1 ): 
-                    vec.append((i-1,j))
-                if(0 <= j -1 ): 
-                    vec.append((i,j-1))
-                if(0 <= i -1 and 0 <= j - 1 ): 
-                    vec.append((i-1,j-1))
-                self.calculados[(i,j)] = vec 
                 env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t']) 
                 env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.explicacion_handler)
                 env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_m']) 
+                self.anot_dial.set(visible = True)
+                vec = [] 
+                if(0 <= i- 1): 
+                    vec.append((i-1,j))
+                if(0 <= j - 1): 
+                    vec.append((i,j-1))
+                if(0 <= j -1 and 0 <= i - 1): 
+                    vec.append((i-1,j-1))
+                text_d = ""
+                self.calculados[(i,j)] = vec 
+                if(self.cad1[i] == self.cad2[j]): 
+                    text_d += "El valor inicial de OPT({},{})=1\n".format(i,j)
+                    text_d += "ya que $ {}= {}$".format(self.cad1[i],self.cad2[j])
+                    self.valor_act = 1 
+                else: 
+                    text_d += "El valor inicial de OPT({},{})=0\n".format(i,j)
+                    text_d += "ya que ${}\\neq {}$".format(self.cad1[i],self.cad2[j])
+                    self.valor_act = 0 
+                text = ""
+                text += "Cada vez que presiones n veras la explicaciones\n"
+                text += "de cada una de las opciones que se tienen considerar\n"
+                text += "para calcular OPT({},{})".format(i,j)
+                self.anot.set(text = text)
+                env.vars['mat'].celdas[i][j].anot.set(text = self.valor_act)
+                self.anot_dial.set(text = text_d)
+                self.anot_dial.set(position = (x+4,y+3))
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -213,6 +299,22 @@ class Ejecucion:
             x = x + 3 
         env.vars['ax'].relim()
         env.vars['ax'].autoscale_view()
+    def init_dial(self): 
+        props = dict(boxstyle='round', facecolor='wheat', alpha=1 ) 
+        self.anot_dial = env.vars['ax'].text(0,0,"",va='top',fontsize = 8,bbox = props,visible = False)
+    def config_imagen(self): 
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.subplots_adjust(bottom=0.3)
+        plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+        self.zoom_mas() 
+        self.zoom_mas() 
+    def init_anot(self): 
+        text= "Haz click en la imagen, cada vez que presiones n calcularan \n"
+        text += "los valores para la siguiente linea. Una vez calculados,\n"
+        text += "puedes hacer click en las celdas para saber como fueron calculados." 
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
     def __init__(self): 
         self.config_imagen()
         self.config_teclas()
@@ -220,6 +322,8 @@ class Ejecucion:
         self.dibujar_matriz() 
         env.vars['cid_m'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.mouse_click_handler)
         self.poner_etiquetas()
+        self.init_dial() 
+        self.init_anot() 
 
 env = Env() 
 env.vars['mat'] = None
