@@ -212,10 +212,9 @@ def crear_aleatoria():
     destino = random.randint(0,len(verts)-1)
     env.vars['g'].destino = destino 
     arb = arb_dirigido(arb,destino)
-    print("el destino es {}".format(destino))
     ars_p = [] 
     for (u,v) in arb: 
-        p = random.randint(1,50)
+        p = random.randint(-20,30)
         ars_p.append((u,v,p))
     for u,x,y in verts: 
         for v in vecinos(mat,x,y,n): 
@@ -273,8 +272,32 @@ class Ejecucion:
     ind = 1 
     g_inv = dict()
     camino_col = []  
+    ax_anot = None 
+    anot =None 
+    calculados = dict() 
+    par_act = None 
+    flechas =  []
+    val_act = float('inf')
+    ar_col = []
+    sol_par = None 
+    f_sol = [] 
+    ar_sol = [] 
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
+        plt.subplots_adjust(bottom=0.3)
+        plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+        self.zoom_mas() 
+        self.zoom_mas() 
+    def init_anot(self): 
+        text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
+        text += "el siguiente paso del algoritmo." 
+        text += "Cuando hayas generado algunos valores puedes\n"
+        text += "hacer click en las celdas para ver paso a paso\n"
+        text += "el calculo de su valor."
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
+    
     def camino(self,v,j): 
         sol = [v]
         mat = env.vars['mat']
@@ -290,16 +313,67 @@ class Ejecucion:
                     j = j - 1 
         return sol 
  
+    
+    def calcular_sol(self):
+        for f in self.f_sol: 
+            f.set(visible = False)
+        self.f_sol = [] 
+        for ni,nu,a in self.ar_sol: 
+            ni.set(facecolor = 'white')
+            nu.set(facecolor = 'white')
+            a.set(color = 'black')
+        i,j = self.sol_par
+        mat = env.vars['mat'] 
+        g = env.vars['g']
+        while(j != 0):
+            u = mat.celdas[i][j].ant
+            v = j - 1
+            f = self.agregar_flecha(i,j,u,v)
+            ni = g.pos_nodos[i].img
+            ni.set(facecolor = '#66FF66')
+            nu = g.pos_nodos[u].img
+            nu.set(facecolor = '#66FF66')
+            a = None 
+            if u in g.ady[i]: 
+                a = g.ady[i][u].linea 
+                a.set(color = '#009900')
+                self.ar_sol.append((ni,nu,a))
+            self.f_sol.append(f)
+            j = v
+            i = u 
+    @out1.capture() 
+    def handler_respuesta(self,event): 
+        if(event.xdata == None or event.ydata == None): 
+            return 
+        xe,ye = event.xdata, event.ydata 
+        g = env.vars['g']
+        n = len(g.pos_nodos)
+        mat = env.vars['mat']
+        for i in range(0,n): 
+            x,y = mat.celdas[i][n - 1].rect.get_xy() 
+            if(x <= xe <= x + 2 and y <= ye <= y + 2 ): 
+                self.sol_par = (i,n-1)
+                self.calcular_sol() 
     def siguiente_paso(self):
         j = self.ind 
         mat = env.vars['mat']
         g = env.vars['g']
         n = len(mat.celdas)
         if(j == n):
+            env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_mp'])
+            env.vars['cid_mp'] = env.vars['fig'].canvas.mpl_connect('button_press_event',self.handler_respuesta)
+            for i in range(0,n): 
+                mat.celdas[i][n-1].rect.set(facecolor = '#66FF66')
+            text = "Presiona alguno de los cuadrados verdes para ver el camino mas \n"
+            text += "corto en la grafica. La secuencia de flechas son las opciones optimas\n"
+            text += "para cada casilla. \n"
+            text += "Recuerda que puedes hacer la imagen mas grande con +."
+            self.anot.set(text = text)
             return 
         dp = mat.celdas
         for i in range(0,n): 
             dp[i][j].valor = dp[i][j-1].valor
+            dp[i][j].ant = i
             for w,nodo in g.ady[i].items():  
                 if((dp[w][j-1].valor + nodo.peso if dp[w][j-1].valor != float('inf') else float('inf')) <= dp[i][j].valor): 
                     dp[i][j].valor = dp[w][j-1].valor + nodo.peso if dp[w][j-1].valor != float('inf') else float('inf')  
@@ -307,6 +381,7 @@ class Ejecucion:
                         dp[i][j].ant = w
                 else:  
                     dp[i][j].valor = dp[i][j].valor
+            self.calculados[(i,j)] = [] 
             dp[i][j].anot.set(text = "{}".format("$\infty$" if  dp[i][j].valor == float('inf') else dp[i][j].valor))
         self.ind = j + 1 
     @out1.capture()
@@ -379,21 +454,104 @@ class Ejecucion:
         for i in range(0,n):
             m.celdas[destino][i].valor = 0  
             m.celdas[destino][i].anot.set(text = "{}".format(0))
+    
+
+    def agregar_flecha(self,i,j,u,v):
+        mat = env.vars['mat']
+        x1,y1 = mat.celdas[i][j].rect.get_xy() 
+        x1 += 1
+        y1 += 1 
+        x2,y2 = mat.celdas[u][v].rect.get_xy()
+        x2 += 1
+        y2 += 1
+        (x1,y1),(x2,y2) = inter_points(0.5,x1,y1,x2,y2),inter_points(0.5,x2,y2,x1,y1) 
+        return env.vars['ax'].arrow(x1,y1, x2-x1, y2-y1,width = 0.2,head_length = 1,facecolor = 'white',length_includes_head = True) 
+    
+    def exp_siguiente_paso(self):
+        if(not self.calculados[self.par_act]): 
+            env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t']) 
+            env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.teclas_handler)        
+            env.vars['cid_mp'] = env.vars['fig'].canvas.mpl_connect('button_press_event',self.handler_mouse_press)
+            for f in self.flechas: 
+                f.set(visible = False)
+            self.anot_dial.set(visible = False )
+            self.val_act = float('inf')
+            for f in self.ar_col: 
+                f.set(color = 'black')
+            text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
+            text += "el siguiente paso del algoritmo." 
+            text += "Cuando hayas generado algunos valores puedes\n"
+            text += "hacer click en las celdas para ver paso a paso\n"
+            text += "el calculo de su valor."
+            self.anot.set(text =text)
+            return 
+        i,j = self.par_act 
+        mat = env.vars['mat']
+        g = env.vars['g']
+        u,v = self.calculados[self.par_act][0] 
+        self.calculados[self.par_act].pop(0)
+        if(i == u): 
+            f = self.agregar_flecha(i,j,u,v)
+            self.flechas.append(f)
+            text = "$OPT({},{})=$\n".format(i,j)
+            text += "$min(OPT({},{}),OPT({},{}))=$\n".format(i,j,u,v)
+            text += "$min({},{})$=".format('\infty' if self.val_act == float('inf') else self.val_act ,'\infty' if mat.celdas[u][v].valor == float('inf') else mat.celdas[u][v].valor)
+            text += "${}$".format('\infty' if min(self.val_act,mat.celdas[u][v].valor) == float('inf') else min(self.val_act,mat.celdas[u][v].valor))
+            self.anot_dial.set(text = text)
+        else: 
+            f = self.agregar_flecha(i,j,u,v)
+            self.flechas.append(f)
+            text = "OPT({},{}) =\n".format(i,j)
+            text += "$min(OPT({},{}),\lambda_{{({},{})}} + OPT({},{}))=$\n".format(i,j,i,u,u,v)
+            val_acts = "\infty" if float('inf') == self.val_act else  str(self.val_act) 
+            text += "$min({},{}+{})=$\n".format(val_acts,g.ady[i][u].peso,
+                                                '\infty' if mat.celdas[u][v].valor == float('inf') else mat.celdas[u][v].valor)
+            text += "$min({},{})=$".format(val_acts,
+                                            '\infty' if g.ady[i][u].peso + mat.celdas[u][v].valor == float('inf') else g.ady[i][u].peso + mat.celdas[u][v].valor )
+            text += "${}$".format('\infty' if min(self.val_act,g.ady[i][u].peso + mat.celdas[u][v].valor) == float('inf') else min(self.val_act,g.ady[i][u].peso + mat.celdas[u][v].valor))
+            self.val_act = min(self.val_act,g.ady[i][u].peso + mat.celdas[u][v].valor)
+            mat.celdas[i][j].anot.set(text =  '$\infty$' if min(self.val_act,g.ady[i][u].peso + mat.celdas[u][v].valor) == float('inf') else min(self.val_act,g.ady[i][u].peso + mat.celdas[u][v].valor) )
+            self.anot_dial.set(text = text)
+            f = g.ady[i][u].linea
+            f.set(color = '#009900')
+            self.ar_col.append(f)
+
+    @out1.capture()
+    def explicacion_handler(self,event): 
+        if(event.key == 'n'): 
+            self.exp_siguiente_paso() 
+        if(event.key == '-'):
+            self.zoom_menos()  
+        elif(event.key == '+'): 
+            self.zoom_mas() 
     @out1.capture()
     def handler_mouse_press(self,event):
         if(event.xdata == None or event.ydata == None): 
             return 
+        xe,ye = event.xdata, event.ydata 
         g = env.vars['g']
-        for i,c in g.pos_nodos.items(): 
-            x,y = c.img.get_center()
-            if(math.sqrt( (x- event.xdata)**2 + (y -event.ydata )**2) < env.vars['rad']): 
-                self.camino_col = self.camino(i,self.ind-1)
-                if(len(self.camino_col) >= 2 ): 
-                    for i in range(0,len(self.camino_col)-1): 
-                        g.ady[self.camino_col[i]][self.camino_col[i+1]].linea.set(color = 'red')
-                else: 
-                    self.camino_col = []  
-                return 
+        n = len(g.pos_nodos)
+        mat = env.vars['mat']
+        for i in range(0,n): 
+            for j in range(0,n):  
+                x,y = mat.celdas[i][j].rect.get_xy()
+                if(x <= xe <= x + 2 and y <= ye <= y +2 and (i,j) in self.calculados): 
+                    env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_t']) 
+                    env.vars['fig'].canvas.mpl_disconnect(env.vars['cid_mp']) 
+                    env.vars['cid_t'] = env.vars['fig'].canvas.mpl_connect('key_press_event', self.explicacion_handler)
+                    for u,nodo in env.vars['g'].ady[i].items(): 
+                        self.calculados[(i,j)].append((u,j-1))
+                    self.calculados[(i,j)].append((i,j-1))
+                    self.par_act = (i,j)
+                    x,y = mat.celdas[i][j].rect.get_xy() 
+                    self.anot_dial.set(position = (x+3,y+2))
+                    self.anot_dial.set(visible = True)
+                    text_d = "$OPT({},{})=\infty$".format(i,j)
+                    env.vars['mat'].celdas[i][j].anot.set(text = '$\infty$')
+                    self.anot_dial.set(text = text_d)
+                    text = "Cada vez que presiones n veras las diferentes opciones que\n"
+                    text += "tiene esta celda para calcular el valor optimo."
+                    self.anot.set(text = text)
     def limpiar_camino(self): 
         g = env.vars['g']
         for i in range(0,len(self.camino_col)-1): 
@@ -405,6 +563,11 @@ class Ejecucion:
     def config_mouse(self): 
         env.vars['cid_mp'] = env.vars['fig'].canvas.mpl_connect('button_press_event', self.handler_mouse_press)
         env.vars['cid_mr'] = env.vars['fig'].canvas.mpl_connect('button_release_event', self.handler_mouse_release)
+    
+    def init_dial(self): 
+        props = dict(boxstyle='round', facecolor='wheat', alpha=1 ) 
+        self.anot_dial = env.vars['ax'].text(0,0,"",va='top',fontsize = 8,bbox = props,visible = False)
+    
     def __init__(self): 
         crear_aleatoria() 
         self.n = len(env.vars['g'].pos_nodos.keys())
@@ -415,6 +578,8 @@ class Ejecucion:
         self.poner_etiquetas() 
         self.inicializar_matriz() 
         self.config_mouse() 
+        self.init_anot() 
+        self.init_dial() 
 
 env = Env() 
 env.vars['g'] = Grafica()
