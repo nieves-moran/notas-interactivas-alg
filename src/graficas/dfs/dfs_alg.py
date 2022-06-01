@@ -212,12 +212,26 @@ class Ejecucion:
     pila = None
     expandidos = None
     pila_img = None
+    anot_dial = None 
+    anot_tope = None
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
-       
+        plt.subplots_adjust(bottom=0.3)
+        plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+        self.zoom_mas() 
+        self.zoom_mas() 
+    def init_anot(self): 
+        text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
+        text += "el siguiente paso de DFS." 
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
+        #para la anotacion del tope de la pila 
+        props = dict(boxstyle='round', facecolor='wheat', alpha=1 ) 
+        self.anot_tope = env.vars['ax'].text(0,0,"",va='top',fontsize = 8,bbox = props,visible = False)
     def dibujar_pila(self): 
         g = env.vars['g']
-        x = g.max_x 
+        x = g.max_x + 10
         y = g.min_y 
         for n in self.pila_img.nodos:
             n.rect.set(visible = False)
@@ -252,9 +266,12 @@ class Ejecucion:
             if(v not in self.expandidos and v not in self.pila):  
                 self.pila.append(v)
                 g.pos_nodos[v].img.set(facecolor = 'gray')
-                self.poner_flecha(x,v,'blue')
-                #g.ady[x][v].linea.set(color = 'red')
+                self.poner_flecha(x,v,'#0080FF')
                 hijos = True 
+                text = "Se busca un nodo vecino de {} que no haya sido expandido o visitado y\n".format(x)
+                text += "se agrega al tope de la pila.\n"
+                text += "El nodo actual ahora es {}.".format(v)
+                self.anot.set(text = text)
                 break  
         if(not hijos): 
             self.expandidos.append(x)
@@ -262,8 +279,18 @@ class Ejecucion:
             g.pos_nodos[x].anot.set(color = 'white')
             self.pila.pop() 
             if(self.pila): 
-                self.poner_flecha(x,self.pila[-1],'red')
+                self.poner_flecha(x,self.pila[-1],'#CC0000')
+                text = "El nodo {} no tiene mas vecinos que no esten en la pila o que \n".format(x)
+                text += "no hayan sido expandidos.\n"
+                text += "Se saca de la pila a {} y ahora nodo actual es {}".format(x,self.pila[-1])
+                self.anot.set(text = text)
+            else: 
+                text = "La pila esta vacia. El algoritmo termina."
+                self.anot_tope.set(visible = False)
+                self.anot.set(text = text)
         self.dibujar_pila() 
+        x,y = self.pila_img.nodos[-1].rect.get_xy() 
+        self.anot_tope.set(position = (x-5,y+2) )
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -286,15 +313,29 @@ class Ejecucion:
         g.pos_nodos[self.primero].img.set(facecolor = 'gray')
         self.pila = [self.primero]
         self.expandidos = [self.primero]
+    def init_dial(self): 
+        props = dict(boxstyle='round', facecolor='wheat', alpha=1 ) 
+        self.anot_dial = env.vars['ax'].text(0,0,"",va='top',fontsize = 8,bbox = props,visible = False)
+    def anot_pila(self): 
+        self.anot_tope.set(visible = True)
+        x,y = self.pila_img.nodos[-1].rect.get_xy() 
+        self.anot_tope.set(position = (x-5,y+2) )
+        text = "Tope de\nla pila."
+        self.anot_tope.set(text = text)
+        props = dict(boxstyle='round', facecolor='wheat', alpha=1 ) 
+        env.vars['ax'].text(x,y-2,"Pila",va='top',fontsize = 10,bbox = props)
     def __init__(self): 
         crear_aleatoria() 
         self.n = len(env.vars['g'].pos_nodos.keys())
         self.alcanzados = []
         self.escoger_primero()
         self.config_imagen()
+        self.init_anot() 
         self.pila_img = Pila() 
         self.dibujar_pila() 
+        self.anot_pila() 
         self.config_teclas()
+        self.init_dial() 
 
 env = Env() 
 env.vars['g'] = Grafica()
