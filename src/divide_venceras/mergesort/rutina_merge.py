@@ -57,6 +57,7 @@ def dibujar_arreglo(arreglo,x,y,etiq_b):
         if(not etiq_b): 
             etiq = ""
         arr.elms[i].anot = ax.text(x+1.5,y+1.5,etiq,ha = 'center',va = 'center',fontsize = 9) 
+        ax.text(x+1.5,y-1,i,ha = 'center',va = 'center',fontsize = 9)
         x = x + 3 
     return arr
 class Ind: 
@@ -76,6 +77,8 @@ class Ejecucion:
     ind_j = None 
     ind_k = None
     anots = dict()
+    anot =None 
+    ax_anot = None 
     def poner_anotaciones(self): 
         ax = env.vars['ax']
         self.anots['anot_a1'] = ax.text(15,5,"$A_1$",ha = 'center',va = 'center',fontsize = 11)
@@ -83,28 +86,52 @@ class Ejecucion:
         self.anots['anot_a3'] = ax.text(35,15,"$A_3$",ha = 'center',va = 'center',fontsize = 11)           
     def config_imagen(self): 
         plt.gca().set_aspect('equal', adjustable='box')
-        plt.axis('off')
+        plt.subplots_adjust(bottom=0.3)
+        plt.axis("off")
+        self.ax_anot = plt.axes([0.1, 0.1, 0.8, 0.15])
+        plt.axis("off")
+        self.zoom_mas() 
+        self.zoom_mas() 
+    def init_anot(self): 
+        text= "Haz click en la imagen, cada vez que presiones n se ejecutara \n"
+        text += "el siguiente paso de la rutina de combinacion." 
+        self.anot = self.ax_anot.text(0.1,0.7,text,va = 'top',ha = "left")
     def siguiente_paso(self):
         i,j,k = self.ind_i.valor,self.ind_j.valor,self.ind_k.valor
         if(k == len(self.arr3.elms)): 
+            text= "La rutina termina. El arreglo $A_3$ esta ordenado.\n"
+            self.anot.set(text = text)
             return 
         n, m = len(self.arr1.elms),len(self.arr2.elms)
+        text = ""
         if(i == n): 
+            text += "El indice i es igual a {}, ".format(n)
+            text += "$A_3[{}] = A_2[{}]$\n".format(k,j)
+            text += "Se avanza el indice j y el indice k."
             self.arr3.elms[k].valor = self.arr2.elms[j].valor
             self.arr3.elms[k].anot.set(text = self.arr3.elms[k].valor)
             self.ind_j.anot.set(x = self.ind_j.anot.get_position()[0] + 3)
             j = j + 1 
         elif(j == m): 
+            text += "El indice j es igual a {}, ".format(m)
+            text += "$A_3[{}] = A_1[{}]$\n".format(k,j)
+            text += "Se avanza el indice i y el indice k."
             self.arr3.elms[k].valor = self.arr1.elms[i].valor
             self.arr3.elms[k].anot.set(text = self.arr3.elms[k].valor)
             self.ind_i.anot.set(x = self.ind_i.anot.get_position()[0] + 3)
             i = i + 1       
         elif(self.arr1.elms[i].valor < self.arr2.elms[j].valor): 
+            text += "Ya que $A_1[{}] < A_2[{}]$, ".format(i,j)
+            text += "$A_3[{}] = A_1[{}]$\n".format(k,i)
+            text += "Se avanza el indice i y el indice k."
             self.arr3.elms[k].valor = self.arr1.elms[i].valor
             self.arr3.elms[k].anot.set(text = self.arr3.elms[k].valor)
             self.ind_i.anot.set(x = self.ind_i.anot.get_position()[0] + 3)
             i = i + 1 
         else: 
+            text += "Ya que $ A_2[{}] \leq A_1[{}]$, ".format(j,i)
+            text += "$A_3[{}] = A_2[{}]$\n".format(k,j)
+            text += "Se avanza el indice j y el indice k."
             self.arr3.elms[k].valor = self.arr2.elms[j].valor
             self.arr3.elms[k].anot.set(text = self.arr3.elms[k].valor)
             self.ind_j.anot.set(x = self.ind_j.anot.get_position()[0] + 3)
@@ -113,7 +140,8 @@ class Ejecucion:
         k = k + 1
         self.ind_i.valor = i 
         self.ind_j.valor = j 
-        self.ind_k.valor = k        
+        self.ind_k.valor = k
+        self.anot.set(text = text)        
     @out1.capture()
     def teclas_handler(self,event): 
         if(event.key == 'n'): 
@@ -141,15 +169,16 @@ class Ejecucion:
         a2.sort() 
         a3 = [0 for i in range(0,20)]
         self.arr1 = dibujar_arreglo(a1,0,0,True)
-        self.ind_i = self.dibujar_indice(1.5,-1.5,"i") 
+        self.ind_i = self.dibujar_indice(1.5,-2.5,"i") 
         self.arr2 = dibujar_arreglo(a2,40,0,True)
-        self.ind_j = self.dibujar_indice(41.5,-1.5,"j")
+        self.ind_j = self.dibujar_indice(41.5,-2.5,"j")
         self.arr3 = dibujar_arreglo(a3,5,10,False)
-        self.ind_k = self.dibujar_indice(6.5,8.5,"k") 
+        self.ind_k = self.dibujar_indice(6.5,7.5,"k") 
         env.vars['ax'].relim()
         env.vars['ax'].autoscale()
     def __init__(self): 
         self.config_imagen()
+        self.init_anot() 
         self.config_teclas()
         self.dibujar_arreglos_iniciales()
         self.poner_anotaciones() 
